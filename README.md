@@ -100,8 +100,25 @@ oc login -u <kubeadmin-or-otheruser> --server=https://api.<aro-domain>:6443
 Password: <enter-your-password>
 ```
 
+Onboard to Azure Monitor
+------------------------
+
+Follow [these steps](https://docs.microsoft.com/en-us/azure/openshift/howto-azure-monitor-v4) to onbaord your ARO 4.3 cluster.
+
+```sh
+curl -LO  https://raw.githubusercontent.com/microsoft/OMS-docker/ci_feature/docs/openshiftV4/onboarding_azuremonitor_for_containers.sh
+bash onboarding_azuremonitor_for_containers.sh <azureSubscriptionId> <azureRegionforLogAnalyticsWorkspace> <clusterName> <kubeconfigContextNameOftheCluster>
+# e.g. bash onboarding_azuremonitor_for_containers.sh 27ac26cf-a9f0-4908-b300-9a4e9a0fb205 eastus myocp42 admin
+```
+
 Delete cluster
 --------------
+
+Disable monitoring (if enabled):
+
+```
+helm3 del azmon-containers-release-1
+```
 
 ```sh
 az aro delete -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}"
