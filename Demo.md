@@ -5,7 +5,7 @@ Demo App
 
 ```sh
 az aro list -o table
-az aro list-credentials -g aro-v4-eastus -n aro4cbx
+az aro list-credentials -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}"
 
 oc login -u <kubeadmin-or-otheruser> --server=https://api.<aro-domain>:6443
 
