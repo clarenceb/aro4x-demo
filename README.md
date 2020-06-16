@@ -263,7 +263,7 @@ bash onboarding_azuremonitor_for_containers.sh $kubeconfigContext $azureAroV4Res
 Deploy a demo app
 -----------------
 
-Follow the [Demo1-app](./Demo1-app.md) steps.
+Follow the [Demo](./Demo.md) steps.
 
 (Optional) Delete cluster
 -------------------------
