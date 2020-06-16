@@ -17,8 +17,6 @@ az extension add -n aro --index https://az.aroapp.io/stable
 az provider register -n Microsoft.RedHatOpenShift --wait
 ```
 
-* Use/create an Azure Tenant where you have [Global Administrator](https://docs.microsoft.com/en-us/azure/openshift/howto-create-tenant) role
-* Cluster an AAD application (client ID and secret) and service principal - [more info](https://docs.microsoft.com/en-us/azure/openshift/howto-aad-app-configuration)
 * Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
 * (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Idenity Provider:
@@ -35,61 +33,78 @@ It normally takes about 35 minutes to create a cluster.
 
 ```sh
 # Source variables into your shell environment
-source ./aro43-env.sh
+source ./aro4-env.sh
 
 # Create resource group to hold cluster resources
-az group create -g "${ARO_RESOURCEGROUP}" -l "${ARO_LOCATION}"
+az group create -g $RESOURCEGROUP -l $LOCATION
 
 # Create the ARO virtual network
 az network vnet create \
-  -g "${ARO_RESOURCEGROUP}" \
-  -n "${ARO_VNET}" \
-  --address-prefixes 10.0.0.0/9 \
-  >/dev/null
+  --resource-group $RESOURCEGROUP \
+  --name $VNET \
+  --address-prefixes 10.0.0.0/22
 
 # Add two empty subnets to your virtual network (master subnet and worker subnet)
-for subnet in "${ARO_CLUSTER}-master" "${ARO_CLUSTER}-worker"; do
-  az network vnet subnet create \
-    -g "${ARO_RESOURCEGROUP}" \
-    --vnet-name "${ARO_VNET}" \
-    -n "$subnet" \
-    --address-prefixes 10.$((RANDOM & 127)).$((RANDOM & 255)).0/24 \
-    --service-endpoints Microsoft.ContainerRegistry \
-    >/dev/null
-done
+az network vnet subnet create \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name $VNET \
+  --name master-subnet \
+  --address-prefixes 10.0.0.0/23 \
+  --service-endpoints Microsoft.ContainerRegistry
+
+az network vnet subnet create \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name $VNET \
+  --name worker-subnet \
+  --address-prefixes 10.0.2.0/23 \
+  --service-endpoints Microsoft.ContainerRegistry
 
 # Disable network policies for Private Link Service on your virtual network and subnets.
 # This is a requirement for the ARO service to access and manage the cluster.
 az network vnet subnet update \
-  -g "${ARO_RESOURCEGROUP}" \
-  --vnet-name "${ARO_VNET}" \
-  -n "${ARO_CLUSTER}-master" \
-  --disable-private-link-service-network-policies true \
-  >/dev/null
+  --name master-subnet \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name $VNET \
+  --disable-private-link-service-network-policies true
 
 # Create the actual ARO cluster
 az aro create \
-  -g "${ARO_RESOURCEGROUP}" \
-  -n "${ARO_CLUSTER}" \
-  --vnet "${ARO_VNET}" \
-  --master-subnet "${ARO_CLUSTER}-master" \
-  --worker-subnet "${ARO_CLUSTER}-worker"
+  --resource-group $RESOURCEGROUP \
+  --name $CLUSTER \
+  --vnet $VNET \
+  --master-subnet master-subnet \
+  --worker-subnet worker-subnet
+  # --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
+  # --domain foo.example.com # [OPTIONAL] custom domain
 ```
 
-Login to Web console (initially as `kubeadmin`)
------------------------------------------------
+Login to Web console
+--------------------
 
 ```sh
 # Get Console URL from command output
 az aro list -o table
-# e.g. https://console-openshift-console.apps.<aro-domain>
+# ==> https://console-openshift-console.apps.<aro-domain>
 
 # Get kubeadmin username and password
-az aro list-credentials -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}"
+az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER
+```
+
+Login via `oc` CLI
+------------------
+
+```sh
+API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER | jq -r .kubeadminPassword)
+
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
+oc status
 ```
 
 Add an Identity Provider to add other users
 -------------------------------------------
+
+Add one or more identity providers to allow other users to login.  `kubeadmin` is intended as a temporary login to set up the cluster.
 
 ### HTPasswd
 
@@ -108,33 +123,129 @@ oc apply -f htpasswd-cr.yaml
 
 See the [CLI steps](https://docs.microsoft.com/en-us/azure/openshift/configure-azure-ad-cli) to configure Azure AD or see below for the Portal steps.
 
+Configure OAuth callback URL:
+
 ```sh
-domain=$(az aro show -g aro-v4-eastus -n aro4cbx --query clusterProfile.domain -o tsv)
-location=$(az aro show -g aro-v4-eastus -n aro4cbx --query location -o tsv)
-echo "OAuth callback URL: https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/AAD"
-# ==> https://oauth-openshift.apps.8tqc1kw4.eastus.aroapp.io/oauth2callback/AAD
+domain=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query clusterProfile.domain -o tsv)
+location=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query location -o tsv)
+apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv)
+oauthCallbackURL=https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/AAD
+```
+Create an Azure Active Directory application:
+
+```sh
+clientSecret=$(openssl rand -base64 16)
+echo $clientSecret > clientSecret.txt
+
+appId=$(az ad app create \
+  --query appId -o tsv \
+  --display-name aro-auth \
+  --reply-urls $oauthCallbackURL \
+  --password $clientSecret)
+
+tenantId=$(az account show --query tenantId -o tsv)
 ```
 
-Follow the instructions to [configure Azure AD as an idenity provider](https://docs.microsoft.com/en-us/azure/openshift/configure-azure-ad-ui) via the Azure Portal.
+Create manifest file for optional claims to include in the ID Token:
 
-After creating the AAD application registration and setting the optional claims, add an OpenID Connection provider:
+```sh
+cat > manifest.json<< EOF
+[{
+  "name": "upn",
+  "source": null,
+  "essential": false,
+  "additionalProperties": []
+},
+{
+"name": "email",
+  "source": null,
+  "essential": false,
+  "additionalProperties": []
+}]
+EOF
+```
 
-Issuer: `https://login.microsoftonline.com/<tenant-id>`
+Update AAD application's optionalClaims with a manifest:
 
-The provider name needs to match the Reply Url:
+```sh
+az ad app update \
+  --set optionalClaims.idToken=@manifest.json \
+  --id $appId
+```
 
-`https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/<ProviderName>`
+Update AAD application scope permissions:
+
+```sh
+az ad app permission add \
+ --api 00000002-0000-0000-c000-000000000000 \
+ --api-permissions 311a71cc-e848-46a1-bdf8-97ff7156d8e6=Scope \ # Azure Active Directory Graph.User.Read
+ --id $appId
+```
+
+Login to oc CLI as `kubeadmin`.
+
+Create a secret o store AAD application secret:
+
+```sh
+oc create secret generic openid-client-secret-azuread \
+  --namespace openshift-config \
+  --from-literal=clientSecret=$clientSecret
+```
+
+Create OIDC configuration file for AAD:
+
+```sh
+cat > oidc.yaml<< EOF
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+  - name: AAD
+    mappingMethod: claim
+    type: OpenID
+    openID:
+      clientID: $appId
+      clientSecret: 
+        name: openid-client-secret-azuread
+      extraScopes: 
+      - email
+      - profile
+      extraAuthorizeParameters: 
+        include_granted_scopes: "true"
+      claims:
+        preferredUsername: 
+        - email
+        - upn
+        name: 
+        - name
+        email: 
+        - email
+      issuer: https://login.microsoftonline.com/$tenantId
+EOF
+```
+
+Apply the configuration to the cluster:
+
+```sh
+oc apply -f oidc.yaml
+```
+
+Verify login to ARO console using AAD.
 
 See other [supported identity providers](https://docs.openshift.com/container-platform/4.3/authentication/understanding-identity-provider.html#supported-identity-providers).
 
-Login via `oc` CLI
-------------------
+
+Setup user roles
+----------------
+
+You can assign various roles or cluster roles to users.
+You'll want to have at least one cluster-admin (similar to the `kubeadmin` user):
 
 ```sh
-oc login -u <kubeadmin-or-otheruser> --server=https://api.<aro-domain>:6443
-Password: <enter-your-password>
-
-oc status
+oc adm policy add-cluster-role-to-user cluster-admin <username>
 ```
 
 (Optional) Onboard to Azure Monitor
@@ -144,7 +255,7 @@ Follow [these steps](https://docs.microsoft.com/en-us/azure/azure-monitor/insigh
 
 ```sh
 kubeconfigContext=$(kubectl config current-context)
-azureAroV4ResourceId=$(az aro show -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}" --query "id" -o tsv)
+azureAroV4ResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query "id" -o tsv)
 curl -LO https://raw.githubusercontent.com/microsoft/OMS-docker/ci_feature/docs/aroV4/onboarding_azuremonitor_for_containers.sh
 bash onboarding_azuremonitor_for_containers.sh $kubeconfigContext $azureAroV4ResourceId [<LogAnayticsWorkspaceResourceId>]
 ```
@@ -152,7 +263,7 @@ bash onboarding_azuremonitor_for_containers.sh $kubeconfigContext $azureAroV4Res
 Deploy a demo app
 -----------------
 
-Follow the [Demo](./Demo.md) steps.
+Follow the [Demo1-app](./Demo1-app.md) steps.
 
 (Optional) Delete cluster
 -------------------------
@@ -164,12 +275,11 @@ helm del azmon-containers-release-1
 ```
 
 ```sh
-az aro delete -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}"
+az aro delete -g $RESOURCEGROUP -n $CLUSTER
 
 # (optional)
-for subnet in "${ARO_CLUSTER}-master" "${ARO_CLUSTER}-worker"; do
-  az network vnet subnet delete -g "${ARO_RESOURCEGROUP}" --vnet-name vnet -n "$subnet"
-done
+az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n master-subnet
+az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n worker-subnet
 ```
 
 References

@@ -3,11 +3,17 @@ Demo App
 
 ## Demo of Source 2 Image for a microservices app
 
-```sh
-az aro list -o table
-az aro list-credentials -g "${ARO_RESOURCEGROUP}" -n "${ARO_CLUSTER}"
+Login via `oc` CLI
+------------------
 
-oc login -u <kubeadmin-or-otheruser> --server=https://api.<aro-domain>:6443
+```sh
+source ./aro43-env.sh
+
+API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER | jq -r .kubeadminPassword)
+
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
+oc status
 
 # Create project
 oc new-project mydemos

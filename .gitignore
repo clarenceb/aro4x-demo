@@ -1,2 +1,7 @@
 /htpasswd.txt
 /aro-user.htpasswd
+/pull-secret.txt
+/clientSecret.txt
+/manifest.json
+/oidc.yaml
+/onboarding_azuremonitor_for_containers.sh
