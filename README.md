@@ -1,10 +1,36 @@
-Azure Red Hat OpenShift 4.3
-===========================
+Azure Red Hat OpenShift 4
+=========================
+
+Work in progress.
+
+Topics
+------
+
+* Prerequisities
+* Create the cluster virtual network
+* Create a default cluster
+* Create a private cluster (for private cluster access)
+  * Configure bastion VNET and host
+* Add additional MachineSets (e.g. Infra nodes)
+* Enable Azure Monitor integration
+  * Enable Cluster Logging
+* Provision an Application Gateway for WAF
+* Demo App
+  * Enable Router TLS
 
 Prerequisites
 -------------
 
 * Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+* Log in to your Azure subscription from a console window:
+
+```sh
+az login
+# Follow SSO prompts
+az account list -o table
+az account set -s <subscription_id>
+```
+
 * Install `az aro` extension:
 
 ```sh
@@ -19,17 +45,15 @@ az provider register -n Microsoft.RedHatOpenShift --wait
 
 * Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
-* (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Idenity Provider:
+* (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Identity Provider:
 
 ```sh
 # Ubuntu
 sudo apt install apache2-utils -y
 ```
 
-Create Cluster
---------------
-
-It normally takes about 35 minutes to create a cluster.
+Create the cluster virtual network
+----------------------------------
 
 ```sh
 # Source variables into your shell environment
@@ -66,8 +90,17 @@ az network vnet subnet update \
   --resource-group $RESOURCEGROUP \
   --vnet-name $VNET \
   --disable-private-link-service-network-policies true
+```
 
-# Create the actual ARO cluster
+Create a default cluster
+------------------------
+
+See the [official instructions](https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster).
+
+It normally takes about 35 minutes to create a cluster.
+
+```sh
+# Create the ARO cluster
 az aro create \
   --resource-group $RESOURCEGROUP \
   --name $CLUSTER \
@@ -76,6 +109,155 @@ az aro create \
   --worker-subnet worker-subnet
   # --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
   # --domain foo.example.com # [OPTIONAL] custom domain
+```
+
+Create a private cluster
+------------------------
+
+See the [official instructions](https://docs.microsoft.com/en-us/azure/openshift/howto-create-private-cluster-4x).
+
+It normally takes about 35 minutes to create a cluster.
+
+```sh
+# Create the ARO cluster
+az aro create \
+  --resource-group $RESOURCEGROUP \
+  --name $CLUSTER \
+  --vnet $VNET \
+  --master-subnet master-subnet \
+  --worker-subnet worker-subnet \
+  --apiserver-visibility Private \
+  --ingress-visibility Private
+  # --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
+  # --domain foo.example.com # [OPTIONAL] custom domain
+```
+
+Configure bastion VNET and host (for private cluster access)
+------------------------------------------------------------
+
+In order to connect to a private Azure Red Hat OpenShift cluster, you will need to perform CLI commands from a host that is either in the Virtual Network you created or in a Virtual Network that is peered with the Virtual Network the cluster was deployed to -- this could be from an on-prem host connected over an Express Route.
+
+### Create the Bastion VNET and subnet
+
+```sh
+az network vnet create -g $RESOURCEGROUP -n utils-vnet --address-prefix 10.1.0.0/16 --subnet-name AzureBastionSubnet --subnet-prefix 10.1.0.0/24
+
+az network public-ip create -g $RESOURCEGROUP -n bastion-ip --sku Standard
+```
+
+## Create the Bastion service
+
+```sh
+az network bastion create --name bastion-service --public-ip-address bastion-ip --resource-group $RESOURCEGROUP --vnet-name utils-vnet --location $LOCATION
+```
+
+## Peer the bastion VNET and the ARO VNET
+
+See how to peer VNETs from CLI: https://docs.microsoft.com/en-us/azure/virtual-network/tutorial-connect-virtual-networks-cli#peer-virtual-networks
+
+```sh
+# Get the id for myVirtualNetwork1.
+vNet1Id=$(az network vnet show \
+  --resource-group $RESOURCEGROUP \
+  --name $VNET \
+  --query id --out tsv)
+
+# Get the id for myVirtualNetwork2.
+vNet2Id=$(az network vnet show \
+  --resource-group $RESOURCEGROUP \
+  --name utils-vnet \
+  --query id \
+  --out tsv)
+
+az network vnet peering create \
+  --name aro-utils-peering \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name $VNET \
+  --remote-vnet $vNet2Id \
+  --allow-vnet-access
+
+az network vnet peering create \
+  --name utils-aro-peering \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name utils-vnet \
+  --remote-vnet $vNet1Id \
+  --allow-vnet-access
+```
+
+### Create the utility host subnet
+
+```sh
+az network vnet subnet create \
+  --resource-group $RESOURCEGROUP \
+  --vnet-name utils-vnet \
+  --name utils-hosts \
+  --address-prefixes 10.1.1.0/24 \
+  --service-endpoints Microsoft.ContainerRegistry
+```
+
+### Create the utility host
+
+```sh
+STORAGE_ACCOUNT="jumpboxdiag$(openssl rand -hex 5)"
+az storage account create -n $STORAGE_ACCOUNT -g $RESOURCEGROUP -l $LOCATION --sku Standard_LRS
+
+winpass=$(openssl rand -base64 12)
+echo $winpass > winpass.txt
+
+az vm create \
+  --resource-group $RESOURCEGROUP \
+  --name jumpbox \
+  --image MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest \
+  --vnet-name utils-vnet \
+  --subnet utils-hosts \
+  --public-ip-address "" \
+  --admin-username azureuser \
+  --admin-password $winpass \
+  --authentication-type password \
+  --boot-diagnostics-storage $STORAGE_ACCOUNT \
+  --generate-ssh-keys
+
+az vm open-port --port 3389 --resource-group $RESOURCEGROUP --name jumpbox
+```
+
+### Connect to the utility host
+
+```sh
+# TODO
+```
+
+Install utilities:
+
+* Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+* Log in to your Azure subscription from a console window:
+
+```sh
+az login
+# Follow SSO prompts
+az account list -o table
+az account set -s <subscription_id>
+```
+
+* Install `az aro` extension:
+
+```sh
+az extension add -n aro --index https://az.aroapp.io/stable
+```
+
+* Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
+* (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
+* (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Identity Provider:
+
+```sh
+# Ubuntu
+sudo apt install apache2-utils -y
+```
+
+Provision an Application Gateway for TLS and WAF
+------------------------------------------------
+
+```sh
+
 ```
 
 Login to Web console
@@ -132,6 +314,7 @@ apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.u
 webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv)
 oauthCallbackURL=https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/AAD
 ```
+
 Create an Azure Active Directory application:
 
 ```sh
@@ -208,20 +391,20 @@ spec:
     type: OpenID
     openID:
       clientID: $appId
-      clientSecret: 
+      clientSecret:
         name: openid-client-secret-azuread
-      extraScopes: 
+      extraScopes:
       - email
       - profile
-      extraAuthorizeParameters: 
+      extraAuthorizeParameters:
         include_granted_scopes: "true"
       claims:
-        preferredUsername: 
+        preferredUsername:
         - email
         - upn
-        name: 
+        name:
         - name
-        email: 
+        email:
         - email
       issuer: https://login.microsoftonline.com/$tenantId
 EOF
@@ -237,7 +420,6 @@ Verify login to ARO console using AAD.
 
 See other [supported identity providers](https://docs.openshift.com/container-platform/4.3/authentication/understanding-identity-provider.html#supported-identity-providers).
 
-
 Setup user roles
 ----------------
 
@@ -248,8 +430,8 @@ You'll want to have at least one cluster-admin (similar to the `kubeadmin` user)
 oc adm policy add-cluster-role-to-user cluster-admin <username>
 ```
 
-(Optional) Onboard to Azure Monitor
-------------------------------------
+Onboard to Azure Monitor
+------------------------
 
 Follow [these steps](https://docs.microsoft.com/en-us/azure/azure-monitor/insights/container-insights-azure-redhat4-setup) to onboard your ARO 4.3 cluster to Azure Monitor.
 
@@ -265,12 +447,16 @@ Deploy a demo app
 
 Follow the [Demo](./Demo.md) steps.
 
+### Setup router TLS
+
+TODO
+
 (Optional) Delete cluster
 -------------------------
 
 Disable monitoring (if enabled):
 
-```
+```sh
 helm del azmon-containers-release-1
 ```
 
@@ -286,4 +472,4 @@ References
 ----------
 
 * [Create an ARO 4 cluster](https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster) - Microsoft Docs
-* [Supported identity providers in OCP 4.3](https://docs.openshift.com/container-platform/4.3/authentication/understanding-identity-provider.html#supported-identity-providers)
+* [Supported identity providers in OCP 4.4](https://docs.openshift.com/container-platform/4.4/authentication/understanding-identity-provider.html#supported-identity-providers)
