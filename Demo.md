@@ -7,7 +7,7 @@ Login via `oc` CLI
 ------------------
 
 ```sh
-source ./aro43-env.sh
+source ./aro4-env.sh
 
 API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
 KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER | jq -r .kubeadminPassword)
@@ -59,4 +59,4 @@ oc delete project mydemos
 
 ## References
 
-* [ARO Workshop](https://aroworkshop.io/) - currently, based on ARO 3.11 but the demo app steps are the same for V4.3.
+* [ARO Workshop](https://aroworkshop.io/)

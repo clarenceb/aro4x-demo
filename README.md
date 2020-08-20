@@ -10,7 +10,8 @@ Topics
 * Create the cluster virtual network
 * Create a default cluster
 * Create a private cluster (for private cluster access)
-  * Configure bastion VNET and host
+  * Configure bastion VNET and utility host
+* Configure a custom domain and CA
 * Add additional MachineSets (e.g. Infra nodes)
 * Enable Azure Monitor integration
   * Enable Cluster Logging
@@ -29,12 +30,6 @@ az login
 # Follow SSO prompts
 az account list -o table
 az account set -s <subscription_id>
-```
-
-* Install `az aro` extension:
-
-```sh
-az extension add -n aro --index https://az.aroapp.io/stable
 ```
 
 * Register the `Microsoft.RedHatOpenShift` resource provider to be able to create ARO clusters:
@@ -106,8 +101,8 @@ az aro create \
   --name $CLUSTER \
   --vnet $VNET \
   --master-subnet master-subnet \
-  --worker-subnet worker-subnet
-  # --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
+  --worker-subnet worker-subnet \
+  --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
   # --domain foo.example.com # [OPTIONAL] custom domain
 ```
 
@@ -127,13 +122,20 @@ az aro create \
   --master-subnet master-subnet \
   --worker-subnet worker-subnet \
   --apiserver-visibility Private \
-  --ingress-visibility Private
-  # --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
+  --ingress-visibility Private \
+  --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
   # --domain foo.example.com # [OPTIONAL] custom domain
 ```
 
-Configure bastion VNET and host (for private cluster access)
-------------------------------------------------------------
+(Optional) Configure custom domain and CA
+-----------------------------------------
+
+If you used the `--domain` flag to create your cluster you'll need to configure DNS and a certificate authority for your API server and apps ingress.
+
+Follow the steps in [TLS.md](./TLS.md).
+
+(Optional) Configure bastion VNET and host (for private cluster access)
+-----------------------------------------------------------------------
 
 In order to connect to a private Azure Red Hat OpenShift cluster, you will need to perform CLI commands from a host that is either in the Virtual Network you created or in a Virtual Network that is peered with the Virtual Network the cluster was deployed to -- this could be from an on-prem host connected over an Express Route.
 
@@ -145,13 +147,13 @@ az network vnet create -g $RESOURCEGROUP -n utils-vnet --address-prefix 10.1.0.0
 az network public-ip create -g $RESOURCEGROUP -n bastion-ip --sku Standard
 ```
 
-## Create the Bastion service
+### Create the Bastion service
 
 ```sh
 az network bastion create --name bastion-service --public-ip-address bastion-ip --resource-group $RESOURCEGROUP --vnet-name utils-vnet --location $LOCATION
 ```
 
-## Peer the bastion VNET and the ARO VNET
+### Peer the bastion VNET and the ARO VNET
 
 See how to peer VNETs from CLI: https://docs.microsoft.com/en-us/azure/virtual-network/tutorial-connect-virtual-networks-cli#peer-virtual-networks
 
@@ -222,9 +224,7 @@ az vm open-port --port 3389 --resource-group $RESOURCEGROUP --name jumpbox
 
 ### Connect to the utility host
 
-```sh
-# TODO
-```
+Connect to the `jumpbox` host using the Bastion connection type and enter the username (`azureuser`) and password (value of `$winpass`) used above.
 
 Install utilities:
 
@@ -238,26 +238,16 @@ az account list -o table
 az account set -s <subscription_id>
 ```
 
-* Install `az aro` extension:
-
-```sh
-az extension add -n aro --index https://az.aroapp.io/stable
-```
-
 * Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
-* (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Identity Provider:
 
-```sh
-# Ubuntu
-sudo apt install apache2-utils -y
-```
+Given this is a Windows jumpbox, you may need to install a Bash shell like Git Bash.
 
 Provision an Application Gateway for TLS and WAF
 ------------------------------------------------
 
 ```sh
-
+# TODO
 ```
 
 Login to Web console
