@@ -102,8 +102,11 @@ az aro create \
   --vnet $VNET \
   --master-subnet master-subnet \
   --worker-subnet worker-subnet \
-  --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
-  # --domain foo.example.com # [OPTIONAL] custom domain
+  --pull-secret @pull-secret.txt \
+  --domain $DOMAIN
+
+# pull-secret: OPTIONAL, but recommended
+# domain: OPTIONAL custom domain for ARO (set in aro4-env.sh)
 ```
 
 Create a private cluster
@@ -123,8 +126,11 @@ az aro create \
   --worker-subnet worker-subnet \
   --apiserver-visibility Private \
   --ingress-visibility Private \
-  --pull-secret @pull-secret.txt # [OPTIONAL, but recommended]
-  # --domain foo.example.com # [OPTIONAL] custom domain
+  --pull-secret @pull-secret.txt \
+  --domain $DOMAIN
+
+# pull-secret: OPTIONAL, but recommended
+# domain: OPTIONAL custom domain for ARO (set in aro4-env.sh)
 ```
 
 (Optional) Configure custom domain and CA
@@ -246,9 +252,57 @@ Given this is a Windows jumpbox, you may need to install a Bash shell like Git B
 Provision an Application Gateway for TLS and WAF
 ------------------------------------------------
 
+This approach is not using the AppGw Ingress Controller but rather deploying an AppGw in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.
+
 ```sh
-# TODO
+az network vnet create \
+  --name myAGVNet \
+  --resource-group $RESOURCEGROUP \
+  --location $LOCATION \
+  --address-prefix 10.2.0.0/16 \
+  --subnet-name myAGSubnet \
+  --subnet-prefix 10.2.1.0/24
+
+az network public-ip create \
+  --resource-group $RESOURCEGROUP \
+  --name myAGPublicIPAddress \
+  --allocation-method Static \
+  --sku Standard
 ```
+
+If ARO cluster is using Private ingress, you'll need to peer the AppGw  VNET and the ARO VNET.
+
+```sh
+az network application-gateway create \
+  --name myAppGateway \
+  --location $LOCATION \
+  --resource-group $RESOURCEGROUP \
+  --capacity 1 \
+  --sku WAF_v2 \
+  --http-settings-cookie-based-affinity Disabled \
+  --public-ip-address myAGPublicIPAddress \
+  --vnet-name myAGVNet \
+  --subnet myAGSubnet
+```
+
+TODO:
+
+* Define custom DNS entries for the AppGw FE IP
+* Define Backend pools to point to the exposed ARO routes x n (one per web site/api)
+* Define backend HTTP Settings (HTTPS, 443, Trusted CA) X 1
+* Define HTTPS listener and FE certifcate to the AppGw (PFX certificate file) x n (one per website/api) -- wildcard hostname not supported yet
+
+```sh
+./acme.sh --issue --dns -d "*.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+# Add the TXT entry for _acme-challenge to the $DOMAIN record set
+./acme.sh --renew --dns -d "*.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+
+cd ~/.acme.sh/\*.aro.clarenceb.com/
+cat fullchain.cer \*.aro.clarenceb.com.key > bundle.pem
+openssl pkcs12 -export -out file.pfx -in bundle.pem
+```
+
+* Define rules x n (one per webiste/api)
 
 Login to Web console
 --------------------
@@ -426,10 +480,26 @@ Onboard to Azure Monitor
 Follow [these steps](https://docs.microsoft.com/en-us/azure/azure-monitor/insights/container-insights-azure-redhat4-setup) to onboard your ARO 4.3 cluster to Azure Monitor.
 
 ```sh
-kubeconfigContext=$(kubectl config current-context)
-azureAroV4ResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query "id" -o tsv)
-curl -LO https://raw.githubusercontent.com/microsoft/OMS-docker/ci_feature/docs/aroV4/onboarding_azuremonitor_for_containers.sh
-bash onboarding_azuremonitor_for_containers.sh $kubeconfigContext $azureAroV4ResourceId [<LogAnayticsWorkspaceResourceId>]
+curl -o enable-monitoring.sh -L https://aka.ms/enable-monitoring-bash-script
+# Edit the script to change the default workspace region:
+# workspaceRegion="eastus"
+# workspaceRegionCode="EUS"
+# or specify the Log Ana;ytics Workpace ID: --workspace-id <workspace-resource-id>
+
+adminUserName=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminUsername' -o tsv)
+adminPassword=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminPassword' -o tsv)
+apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+
+oc login $apiServer -u $adminUserName -p $adminPassword
+# openshift project name for azure monitor for containers
+openshiftProjectName="azure-monitor-for-containers"
+# get the kube config context
+kubeContext=$(oc config current-context)
+
+# Integrate with the default workspace
+azureAroV4ClusterResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query id -o tsv)
+
+bash enable-monitoring.sh --resource-id $azureAroV4ClusterResourceId --kube-context $kubeContext # -workspace-id <workspace-resource-id>
 ```
 
 Deploy a demo app

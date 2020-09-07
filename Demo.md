@@ -16,7 +16,8 @@ oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
 oc status
 
 # Create project
-oc new-project mydemos
+PROJECT=mydemo
+oc new-project $PROJECT
 
 # Deploy mongo DB
 oc get templates -n openshift
@@ -30,16 +31,39 @@ oc status
 
 # Deploy Ratings API
 oc new-app https://github.com/microsoft/rating-api --strategy=source
-oc set env dc rating-api MONGODB_URI=mongodb://ratingsuser:ratingspassword@mongodb.mydemos.svc.cluster.local:27017/ratingsdb
+oc set env deploy rating-api MONGODB_URI=mongodb://ratingsuser:ratingspassword@mongodb.$PROJECT.svc.cluster.local:27017/ratingsdb
 
 oc get svc rating-api
 oc describe bc/rating-api
 
 # Deploy Ratings Frontend
 oc new-app https://github.com/microsoft/rating-web --strategy=source
-oc set env dc rating-web API=http://rating-api:8080
+oc set env deploy rating-web API=http://rating-api:8080
 
+# Expose service using a route method from the ones below (depending on your setup):
+
+# 1. Default route
 oc expose svc/rating-web
+
+# 2. Edge route (<service>.<apps>.<custom-domain>) - Terminates TLS at router
+
+oc create route edge --service=rating-web
+
+# 3. Edge route with another domain, not the default router domain (optional Ca, cert, key; if different from the default ingress/router setup)
+oc create route edge --service=rating-web --hostname=<another-domain> --ca-cert=<path-to-ca-cert> --cert=<path-to-cert> --key=<path-to-key>
+
+curl https://rating-web.<another-domain> --resolve 'rating-web.<another-domain>:443:<router_ip_address>'
+
+# In App Gateway, HTTP Settings, you need to specify a Host name override with specific domain name (and backend pool can use IP address)
+
+# 4. Re-encrypt
+
+TODO
+
+# 5. Pass-through
+
+TODO
+
 oc get route rating-web
 ```
 

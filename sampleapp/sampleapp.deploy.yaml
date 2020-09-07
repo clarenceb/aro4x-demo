@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampleapp
+  labels:
+    app: sampleapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampleapp
+  template:
+    metadata:
+      labels:
+        app: sampleapp
+    spec:
+      containers:
+      - name: aspnetapp
+        image: mcr.microsoft.com/dotnet/core/samples:aspnetapp
+        ports:
+        - containerPort: 443
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+            - name: secret-volume
+              readOnly: true
+              mountPath: "/https"      
+        env:
+          - name: ASPNETCORE_URLS
+            value: "https://+;http://+"
+          - name: ASPNETCORE_HTTPS_PORT
+            value: "443"
+          - name: ASPNETCORE_Kestrel__Certificates__Default__Password
+            value: "mypassword"
+          - name: ASPNETCORE_Kestrel__Certificates__Default__Path
+            value: /https/server.pfx
+      volumes:
+          - name: secret-volume
+            secret:
+              secretName: server-pfx
+
+          

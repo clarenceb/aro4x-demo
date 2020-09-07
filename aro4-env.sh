@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Source this file into your shell
-# $ source ./aro43.sh
+# $ source ./aro4-env.sh
 
 export LOCATION=australiaeast # Choose your region
 export CLUSTER=cluster        # Set your cluster name

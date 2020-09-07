@@ -38,27 +38,17 @@ source ./aro4-env.sh
 [Fri Aug 21 03:22:37 AEST 2020] Please add '--debug' or '--log' to check more details.
 [Fri Aug 21 03:22:37 AEST 2020] See: https://github.com/acmesh-official/acme.sh/wiki/How-to-debug-acme.sh
 
+# Retrieve the API IP for Azure DNS records
+az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverProfile.ip'
+
+# Set up Azure DNS records
+# (You can use the IPs but it's probably better to use the alias records to the public IP resources in ase the IP address changes.)
+
+* Create a `api` A record of type Alias to point to the API Load Balancer (`cluster-xxxxx-public-lb`) Public IP: `cluster-yyyyy-pip-v4`
+
 # Add the _acme-challenge TXT record to api.<DOMAIN>
 # Download the certs and key
 ./acme.sh --renew --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
-
-cd ~/.acme.sh/api.$DOMAIN/
-
-# Add an API server named certificate
-# See: https://docs.openshift.com/container-platform/4.4/security/certificates/api-server.html
-
-oc create secret tls api-<DOMAIN> \
-     --cert=fullchain.cer \
-     --key=api.$DOMAIN \
-     -n openshift-config
-
-oc patch apiserver cluster \
---type=merge -p \
-'{"spec":{"servingCerts": {"namedCertificates":
-[{"names": ["api.<DOMAIN>"],
-"servingCertificate": {"name": "api-<DOMAIN>"}}]}}}'
-
-oc get apiserver cluster -o yaml
 
 # Issue a new cert for domain *.apps.<DOMAIN>
 ./acme.sh --issue --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
@@ -78,9 +68,47 @@ oc get apiserver cluster -o yaml
 [Fri Aug 21 03:43:07 AEST 2020] Please add '--debug' or '--log' to check more details.
 [Fri Aug 21 03:43:07 AEST 2020] See: https://github.com/acmesh-official/acme.sh/wiki/How-to-debug-acme.sh
 
+# Retrieve the Ingress IP for Azure DNS records
+az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles[0].ip'
+
+# Set up Azure DNS records
+# (You can use the IPs but it's probably better to use the alias records to the public IP resources in ase the IP address changes.)
+
+* Create a `*.apps` A record of type Alias to point to the Ingress Load Balancer (`cluster-xxxxx`) Public IP: `cluster-yyyyy-xxxxxxxxxxxxxxxx` (not the outbound PIP)
+
 # Add the _acme-challenge TXT record to apps.<DOMAIN>
 # Download the certs and key
 ./acme.sh --renew --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+
+# Logic with `oc`
+
+KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query "kubeadminPassword" -o tsv)
+API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
+oc status
+
+# Note: you might need to wait for DNS propagation
+
+# Configure cluster certs
+
+cd ~/.acme.sh/api.$DOMAIN
+
+# Add an API server named certificate
+# See: https://docs.openshift.com/container-platform/4.4/security/certificates/api-server.html
+
+oc create secret tls api-aro-clarenceb-com \
+     --cert=fullchain.cer \
+     --key=api.$DOMAIN.key \
+     -n openshift-config
+
+oc patch apiserver cluster \
+--type=merge -p \
+'{"spec":{"servingCerts": {"namedCertificates":
+[{"names": ["api.aro.clarenceb.com"],
+"servingCertificate": {"name": "api-aro-clarenceb-com"}}]}}}'
+
+oc get apiserver cluster -o yaml
+
 
 cd ~/.acme.sh/\*.apps.$DOMAIN/
 
@@ -88,20 +116,20 @@ cd ~/.acme.sh/\*.apps.$DOMAIN/
 # See: https://docs.openshift.com/container-platform/4.4/security/certificates/replacing-default-ingress-certificate.html
 
 oc create configmap custom-ca \
-     --from-file=ca-bundle.crt=ca.cer \
+     --from-file=ca-bundle.crt \
      -n openshift-config
 
 oc patch proxy/cluster \
      --type=merge \
      --patch='{"spec":{"trustedCA":{"name":"custom-ca"}}}'
 
-oc create secret tls star-apps-<DOMAIN> \
+oc create secret tls star-apps-clarenceb-com \
      --cert=fullchain.cer \
      --key="*.apps.$DOMAIN.key" \
      -n openshift-ingress
 
 oc patch ingresscontroller.operator default \
      --type=merge -p \
-     '{"spec":{"defaultCertificate": {"name": "star-apps-<DOMAIN>"}}}' \
+     '{"spec":{"defaultCertificate": {"name": "star-apps-clarenceb-com"}}}' \
      -n openshift-ingress-operator
 ```
