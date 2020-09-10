@@ -231,8 +231,8 @@ az account set -s <subscription_id>
 
 Given this is a Windows jumpbox, you may need to install a Bash shell like Git Bash.
 
-Provision an Application Gateway for TLS and WAF
-------------------------------------------------
+(Optional) Provision an Application Gateway for TLS and WAF
+-----------------------------------------------------------
 
 This approach is not using the AppGw Ingress Controller but rather deploying an AppGw in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.
 
@@ -279,8 +279,8 @@ TODO:
 # Add the TXT entry for _acme-challenge to the $DOMAIN record set
 ./acme.sh --renew --dns -d "*.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 
-cd ~/.acme.sh/\*.aro.clarenceb.com/
-cat fullchain.cer \*.aro.clarenceb.com.key > bundle.pem
+cd ~/.acme.sh/\*.$DOMAIN/
+cat fullchain.cer \*.$DOMAIN.key > bundle.pem
 openssl pkcs12 -export -out file.pfx -in bundle.pem
 ```
 

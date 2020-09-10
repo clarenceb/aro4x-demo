@@ -96,7 +96,7 @@ cd ~/.acme.sh/api.$DOMAIN
 # Add an API server named certificate
 # See: https://docs.openshift.com/container-platform/4.4/security/certificates/api-server.html
 
-oc create secret tls api-aro-clarenceb-com \
+oc create secret tls api-custom-domain \
      --cert=fullchain.cer \
      --key=api.$DOMAIN.key \
      -n openshift-config
@@ -104,8 +104,8 @@ oc create secret tls api-aro-clarenceb-com \
 oc patch apiserver cluster \
 --type=merge -p \
 '{"spec":{"servingCerts": {"namedCertificates":
-[{"names": ["api.aro.clarenceb.com"],
-"servingCertificate": {"name": "api-aro-clarenceb-com"}}]}}}'
+[{"names": ["api.<DOMAIN>"],
+"servingCertificate": {"name": "api-custom-domain"}}]}}}'
 
 oc get apiserver cluster -o yaml
 
@@ -123,13 +123,13 @@ oc patch proxy/cluster \
      --type=merge \
      --patch='{"spec":{"trustedCA":{"name":"custom-ca"}}}'
 
-oc create secret tls star-apps-clarenceb-com \
+oc create secret tls star-apps-custom-domain \
      --cert=fullchain.cer \
      --key="*.apps.$DOMAIN.key" \
      -n openshift-ingress
 
 oc patch ingresscontroller.operator default \
      --type=merge -p \
-     '{"spec":{"defaultCertificate": {"name": "star-apps-clarenceb-com"}}}' \
+     '{"spec":{"defaultCertificate": {"name": "star-apps-custom-domain"}}}' \
      -n openshift-ingress-operator
 ```
