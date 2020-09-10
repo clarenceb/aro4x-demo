@@ -17,3 +17,5 @@
 **/*.pem
 **/*.srl
 WorkspaceProps.json
+aro4-env.sh
+
