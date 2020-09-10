@@ -1,6 +1,10 @@
 Sample app
 ==========
 
+Example of exposing an app on a hostname with a custom domain which may not necessarily match the OpenShift route's domain.
+
+TODO
+
 ```sh
 kubectl create secret generic server-pfx --from-file=server.pfx=./server.pfx
 ```
