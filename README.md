@@ -1,24 +1,6 @@
 Azure Red Hat OpenShift 4
 =========================
 
-Work in progress.
-
-Topics
-------
-
-* Prerequisities
-* Create the cluster virtual network
-* Create a default cluster
-* Create a private cluster (for private cluster access)
-  * Configure bastion VNET and utility host
-* Configure a custom domain and CA
-* Add additional MachineSets (e.g. Infra nodes)
-* Enable Azure Monitor integration
-  * Enable Cluster Logging
-* Provision an Application Gateway for WAF
-* Demo App
-  * Enable Router TLS
-
 Prerequisites
 -------------
 
@@ -356,7 +338,12 @@ domain=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query clusterProfile.domain
 location=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query location -o tsv)
 apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
 webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv)
+
+# If using default domain
 oauthCallbackURL=https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/AAD
+
+# If using custom domain
+oauthCallbackURL=https://oauth-openshift.apps.$DOMAIN/oauth2callback/AAD
 ```
 
 Create an Azure Active Directory application:
@@ -365,9 +352,11 @@ Create an Azure Active Directory application:
 clientSecret=$(openssl rand -base64 16)
 echo $clientSecret > clientSecret.txt
 
+appDisplayName="aro-auth-$(openssl rand -hex 4)"
+
 appId=$(az ad app create \
   --query appId -o tsv \
-  --display-name aro-auth \
+  --display-name $appDisplayName \
   --reply-urls $oauthCallbackURL \
   --password $clientSecret)
 
@@ -404,9 +393,10 @@ az ad app update \
 Update AAD application scope permissions:
 
 ```sh
+# Azure Active Directory Graph.User.Read = 311a71cc-e848-46a1-bdf8-97ff7156d8e6
 az ad app permission add \
  --api 00000002-0000-0000-c000-000000000000 \
- --api-permissions 311a71cc-e848-46a1-bdf8-97ff7156d8e6=Scope \ # Azure Active Directory Graph.User.Read
+ --api-permissions 311a71cc-e848-46a1-bdf8-97ff7156d8e6=Scope \
  --id $appId
 ```
 
@@ -462,16 +452,41 @@ oc apply -f oidc.yaml
 
 Verify login to ARO console using AAD.
 
-See other [supported identity providers](https://docs.openshift.com/container-platform/4.3/authentication/understanding-identity-provider.html#supported-identity-providers).
+See other [supported identity providers](https://docs.openshift.com/container-platform/4.4/authentication/understanding-identity-provider.html#supported-identity-providers).
 
 Setup user roles
 ----------------
 
 You can assign various roles or cluster roles to users.
+
+```sh
+oc adm policy add-cluster-role-to-user <role> <username>
+```
+
 You'll want to have at least one cluster-admin (similar to the `kubeadmin` user):
 
 ```sh
 oc adm policy add-cluster-role-to-user cluster-admin <username>
+```
+
+If you get sign-in errors, you may need to delete users and/or identities:
+
+```sh
+oc get user
+oc delete user <user>
+oc get identity
+oc delete identity <name>
+```
+
+Remove the kube-admin user
+--------------------------
+
+See: https://docs.openshift.com/aro/4/authentication/remove-kubeadmin.html
+
+Ensure you have at least one other cluster-admin, sign in as that user then you can remove the `kube-admin` user:
+
+```sh
+oc delete secrets kubeadmin -n kube-system
 ```
 
 Onboard to Azure Monitor
@@ -502,6 +517,8 @@ azureAroV4ClusterResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query 
 bash enable-monitoring.sh --resource-id $azureAroV4ClusterResourceId --kube-context $kubeContext # -workspace-id <workspace-resource-id>
 ```
 
+Adjust the [logging configuration](https://docs.microsoft.com/en-us/azure/azure-monitor/insights/container-insights-agent-config), if necessary.
+
 Deploy a demo app
 -----------------
 
@@ -527,6 +544,9 @@ az aro delete -g $RESOURCEGROUP -n $CLUSTER
 az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n master-subnet
 az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n worker-subnet
 ```
+
+(optional) Delete Azure AD application (if using Azure AD for Auth)
+
 
 References
 ----------
