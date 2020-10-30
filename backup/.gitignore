@@ -1,0 +1,4 @@
+credentials-velero.yaml
+velero-sp.json
+velero-*.tar.gz
+velero-*-linux-amd64
