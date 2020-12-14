@@ -1,7 +1,7 @@
 Demo App
 ========
 
-## Demo of Source 2 Image for a microservices app
+## Demo of Source-to-Image (S2I) for a microservices app
 
 Login via `oc` CLI
 ------------------
@@ -16,7 +16,7 @@ oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
 oc status
 
 # Create project
-PROJECT=mydemo
+PROJECT=workshop
 oc new-project $PROJECT
 
 # Deploy mongo DB
@@ -45,16 +45,15 @@ oc set env deploy rating-web API=http://rating-api:8080
 # 1. Default route
 oc expose svc/rating-web
 
-# 2. Edge route (<service>.<apps>.<custom-domain>) - Terminates TLS at router
-
+# 2. Edge route (<service>.<apps>.<custom-domain>) - Terminates TLS at router (use this is you set up your custom domain on the ingress router)
 oc create route edge --service=rating-web
 
-# 3. Edge route with another domain, not the default router domain (optional Ca, cert, key; if different from the default ingress/router setup)
+# 3. Edge route with another domain, not the default router domain (optional CA, cert, key; if different from the default ingress/router setup)
 oc create route edge --service=rating-web --hostname=<another-domain> --ca-cert=<path-to-ca-cert> --cert=<path-to-cert> --key=<path-to-key>
-
+# Test when using different domain to the default router
 curl https://rating-web.<another-domain> --resolve 'rating-web.<another-domain>:443:<router_ip_address>'
 
-# In App Gateway, HTTP Settings, you need to specify a Host name override with specific domain name (and backend pool can use IP address)
+# If using App Gateway, update the HTTP Settings and specify a Host name override with specific domain name (and backend pool can use IP address)
 
 # 4. Re-encrypt
 
@@ -78,7 +77,7 @@ Things to explore:
 Cleanup:
 
 ```sh
-oc delete project mydemos
+oc delete project $PROJECT
 ```
 
 ## References

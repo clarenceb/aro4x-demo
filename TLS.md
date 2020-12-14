@@ -8,6 +8,8 @@ You'll need to own a domain and have a access to create record sets and update A
 
 The example below uses manually created Let's Encrypt certs.  This is not recommended for production unless you have setup an automated process to create and renew the certs.  These certs would expire after 90 days.
 
+Launch a bash shell (e.g. Git Bash on Windows).
+
 ```sh
  git clone https://github.com/acmesh-official/acme.sh.git
 
@@ -39,7 +41,7 @@ source ./aro4-env.sh
 [Fri Aug 21 03:22:37 AEST 2020] See: https://github.com/acmesh-official/acme.sh/wiki/How-to-debug-acme.sh
 
 # Retrieve the API IP for Azure DNS records
-az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverProfile.ip'
+az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverProfile.ip' -o tsv
 
 # Set up Azure DNS records
 # (You can use the IPs but it's probably better to use the alias records to the public IP resources in ase the IP address changes.)
@@ -51,6 +53,7 @@ az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverProfile.ip'
 ./acme.sh --renew --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 
 # Issue a new cert for domain *.apps.<DOMAIN>
+# Note: On Windows Server, you might need to install Cygwin to handle files starting with an asterix ('*') -- Git bash won't work here.
 ./acme.sh --issue --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 
 [Fri Aug 21 03:43:03 AEST 2020] Using CA: https://acme-v02.api.letsencrypt.org/directory
@@ -69,7 +72,7 @@ az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverProfile.ip'
 [Fri Aug 21 03:43:07 AEST 2020] See: https://github.com/acmesh-official/acme.sh/wiki/How-to-debug-acme.sh
 
 # Retrieve the Ingress IP for Azure DNS records
-az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles[0].ip'
+az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles[0].ip' -o tsv
 
 # Set up Azure DNS records
 # (You can use the IPs but it's probably better to use the alias records to the public IP resources in ase the IP address changes.)
@@ -116,7 +119,7 @@ cd ~/.acme.sh/\*.apps.$DOMAIN/
 # See: https://docs.openshift.com/container-platform/4.4/security/certificates/replacing-default-ingress-certificate.html
 
 oc create configmap custom-ca \
-     --from-file=ca-bundle.crt \
+     --from-file=ca.cer \
      -n openshift-config
 
 oc patch proxy/cluster \

@@ -50,14 +50,14 @@ az network vnet subnet create \
   --resource-group $RESOURCEGROUP \
   --vnet-name $VNET \
   --name master-subnet \
-  --address-prefixes 10.0.0.0/23 \
+  --address-prefixes 10.0.2.0/24 \
   --service-endpoints Microsoft.ContainerRegistry
 
 az network vnet subnet create \
   --resource-group $RESOURCEGROUP \
   --vnet-name $VNET \
   --name worker-subnet \
-  --address-prefixes 10.0.2.0/23 \
+  --address-prefixes 10.0.3.0/24 \
   --service-endpoints Microsoft.ContainerRegistry
 
 # Disable network policies for Private Link Service on your virtual network and subnets.
@@ -130,7 +130,7 @@ In order to connect to a private Azure Red Hat OpenShift cluster, you will need 
 ### Create the Bastion VNET and subnet
 
 ```sh
-az network vnet create -g $RESOURCEGROUP -n utils-vnet --address-prefix 10.1.0.0/16 --subnet-name AzureBastionSubnet --subnet-prefix 10.1.0.0/24
+az network vnet create -g $RESOURCEGROUP -n utils-vnet --address-prefix 10.0.4.0/22 --subnet-name AzureBastionSubnet --subnet-prefix 10.0.4.0/27
 
 az network public-ip create -g $RESOURCEGROUP -n bastion-ip --sku Standard
 ```
@@ -181,7 +181,7 @@ az network vnet subnet create \
   --resource-group $RESOURCEGROUP \
   --vnet-name utils-vnet \
   --name utils-hosts \
-  --address-prefixes 10.1.1.0/24 \
+  --address-prefixes 10.0.5.0/24 \
   --service-endpoints Microsoft.ContainerRegistry
 ```
 
@@ -214,6 +214,16 @@ az vm open-port --port 3389 --resource-group $RESOURCEGROUP --name jumpbox
 
 Connect to the `jumpbox` host using the Bastion connection type and enter the username (`azureuser`) and password (value of `$winpass`) used above.
 
+Install Microsoft Edge browser:
+
+* Open a Powershell prompt
+
+```powershell
+$Url = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/c39f1d27-cd11-495a-b638-eac3775b469d/MicrosoftEdgeEnterpriseX64.msi"
+Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile "\MicrosoftEdgeEnterpriseX64.msi"
+Start-Process msiexec.exe -Wait -ArgumentList '/I \MicrosoftEdgeEnterpriseX64.msi /norestart /qn'
+```
+
 Install utilities:
 
 * Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
@@ -226,24 +236,23 @@ az account list -o table
 az account set -s <subscription_id>
 ```
 
-* Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
+* Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster ([example steps](https://www.openshift.com/blog/installing-oc-tools-windows))
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
 
 Given this is a Windows jumpbox, you may need to install a Bash shell like Git Bash.
 
-(Optional) Provision an Application Gateway for TLS and WAF
------------------------------------------------------------
+(Optional) Provision an Application Gateway v2 for TLS and WAF
+--------------------------------------------------------------
 
-This approach is not using the AppGw Ingress Controller but rather deploying an AppGw in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.
+This approach is not using the AppGw Ingress Controller but rather deploying an App Gateway WAFv2 in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.
 
 ```sh
-az network vnet create \
-  --name myAGVNet \
+az network vnet subnet create \
   --resource-group $RESOURCEGROUP \
-  --location $LOCATION \
-  --address-prefix 10.2.0.0/16 \
-  --subnet-name myAGSubnet \
-  --subnet-prefix 10.2.1.0/24
+  --vnet-name utils-vnet \
+  --name myAGSubnet \
+  --address-prefixes 10.0.6.0/24 \
+  --service-endpoints Microsoft.ContainerRegistry
 
 az network public-ip create \
   --resource-group $RESOURCEGROUP \
@@ -252,7 +261,7 @@ az network public-ip create \
   --sku Standard
 ```
 
-If ARO cluster is using Private ingress, you'll need to peer the AppGw  VNET and the ARO VNET.
+If your ARO cluster is using Private ingress, you'll need to peer the AppGw  VNET and the ARO VNET (if you haven't already done so).
 
 ```sh
 az network application-gateway create \
@@ -263,28 +272,72 @@ az network application-gateway create \
   --sku WAF_v2 \
   --http-settings-cookie-based-affinity Disabled \
   --public-ip-address myAGPublicIPAddress \
-  --vnet-name myAGVNet \
+  --vnet-name utils-vnet \
   --subnet myAGSubnet
 ```
 
-TODO:
-
-* Define custom DNS entries for the AppGw FE IP
-* Define Backend pools to point to the exposed ARO routes x n (one per web site/api)
-* Define backend HTTP Settings (HTTPS, 443, Trusted CA) X 1
-* Define HTTPS listener and FE certifcate to the AppGw (PFX certificate file) x n (one per website/api) -- wildcard hostname not supported yet
+Create or procure your App Gateway frontend PKCS #12 (*.PFX file) certificate chain (e.g. see below for manually, using Let's Encrypt):
 
 ```sh
-./acme.sh --issue --dns -d "*.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
-# Add the TXT entry for _acme-challenge to the $DOMAIN record set
-./acme.sh --renew --dns -d "*.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+# Specify the frontend domain for App Gw (must be different to the internal ARO domain, i.e. not *.apps.<domain>, but you can use *.<domain>)
+APPGW_DOMAIN=$DOMAIN
+./acme.sh --issue --dns -d "*.$APPGW_DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+# Add the TXT entry for _acme-challenge to the $DOMAIN record set, then...
+./acme.sh --renew --dns -d "*.$APPGW_DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 
-cd ~/.acme.sh/\*.$DOMAIN/
-cat fullchain.cer \*.$DOMAIN.key > bundle.pem
-openssl pkcs12 -export -out file.pfx -in bundle.pem
+cd ~/.acme.sh/\*.$APPGW_DOMAIN/
+cat fullchain.cer \*.$APPGW_DOMAIN.key > gw-bundle.pem
+openssl pkcs12 -export -out gw-bundle.pfx -in gw-bundle.pem
 ```
 
-* Define rules x n (one per webiste/api)
+TODO: The following steps require Azure Portal access until I get around to writig the CLI/Powershell steps.
+
+Define Azure DNS entries for the App Gateway frontend IP:
+
+* Create a `*` A record with the public IP address of your App Gateway in your APPGW_DOMAIN domain (or better yet, create an alias record pointing to the public IP resource)
+
+In the Listeners section, create a new HTTPS listener:
+
+* Listener name: aro-route-https-listener
+* Frontend IP: Public
+* Port: 443
+* Protocol: HTTPS
+* Http Settings - choose to Upload a Certificate (upload the PFX file from earlier)
+  * Cert Name: gw-bundle
+  * PFX certificate file: gw-bundle.pfx
+  * Password: ****** (what you used when creating the PFX file)
+  * Additional settings - Multi site: (Enter your site host names, comma separated) - note: wildcard hostname not supported yet
+    * e.g. rating-web.<domain>
+  * Note: You can also create multiple listeners - one per site and re-use the certificate and select basic site
+
+* Define Backend pools to point to the exposed ARO routes x n (one per web site/api)
+* Define backend HTTP Settings (HTTPS, 443, Trusted CA) X 1
+
+In the Backend pools section, create a new backend pool:
+
+* Name: aro-routes
+* Backend Targets: Enter the FQDN(s), e.g. `rating-web-workshop.apps.<domain>`
+* Click Add
+
+In the HTTP settings section, create a new HTTP setting:
+
+* HTTP settings name: aro-route-https-settings
+* Backend protocol: HTTPS
+* Backend port: 443
+* Use well known CA certificat: Yes (if you used one; otherwise upload your CA cer file)
+* Override with new host name: Yes
+* Choose: Pick host name from backend target
+
+In the Rules section, define rules x n (one per website/api):
+
+* Name: e.g. rating-web-rule
+* Select the https listener above
+* Enter backend target details - select the target and HTTP settings created above
+* Click 'Add'
+
+TODO: Define Health probes
+
+Access the website/API via App Gateway: e.g. `https://rating-web.<domain>/`
 
 Login to Web console
 --------------------
@@ -547,9 +600,9 @@ az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n worker-subn
 
 (optional) Delete Azure AD application (if using Azure AD for Auth)
 
-
 References
 ----------
 
 * [Create an ARO 4 cluster](https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster) - Microsoft Docs
 * [Supported identity providers in OCP 4.4](https://docs.openshift.com/container-platform/4.4/authentication/understanding-identity-provider.html#supported-identity-providers)
+* [Overview of TLS termination and end to end TLS with Application Gateway](https://docs.microsoft.com/en-us/azure/application-gateway/ssl-overview)
