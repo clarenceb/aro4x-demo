@@ -29,6 +29,14 @@ az provider register -n Microsoft.RedHatOpenShift --wait
 sudo apt install apache2-utils -y
 ```
 
+Setup your shell environment file
+---------------------------------
+
+```sh
+cp aro4-env.sh.template aro4-env.sh
+# Edit aro4-env.sh to suit your environment
+```
+
 Create the cluster virtual network
 ----------------------------------
 
@@ -552,7 +560,7 @@ curl -o enable-monitoring.sh -L https://aka.ms/enable-monitoring-bash-script
 # Edit the script to change the default workspace region:
 # workspaceRegion="eastus"
 # workspaceRegionCode="EUS"
-# or specify the Log Ana;ytics Workpace ID: --workspace-id <workspace-resource-id>
+# or specify the Log Analytics Workpace ID: --workspace-id <workspace-resource-id>
 
 adminUserName=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminUsername' -o tsv)
 adminPassword=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminPassword' -o tsv)
@@ -564,9 +572,10 @@ openshiftProjectName="azure-monitor-for-containers"
 # get the kube config context
 kubeContext=$(oc config current-context)
 
-# Integrate with the default workspace
+# get ARO cluster resource ID
 azureAroV4ClusterResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query id -o tsv)
 
+# Integrate with the default workspace or specify the Log Analytics Worksapce ID as an additional argument
 bash enable-monitoring.sh --resource-id $azureAroV4ClusterResourceId --kube-context $kubeContext # -workspace-id <workspace-resource-id>
 ```
 
@@ -575,11 +584,7 @@ Adjust the [logging configuration](https://docs.microsoft.com/en-us/azure/azure-
 Deploy a demo app
 -----------------
 
-Follow the [Demo](./Demo.md) steps.
-
-### Setup router TLS
-
-TODO
+Follow the [Demo](./Demo.md) steps to deploy a sample microservices app.
 
 (Optional) Delete cluster
 -------------------------
