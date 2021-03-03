@@ -1,24 +1,28 @@
-Customer domain and certs setup
-===============================
+Custom domain and certs setup
+=============================
 
 Setup custom domain and certs for your cluster.
-See: https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster#prepare-a-custom-domain-for-your-cluster-optional
+
+See official docs: https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster#prepare-a-custom-domain-for-your-cluster-optional
 
 You'll need to own a domain and have a access to create record sets and update A/TXT records for that domain.
 
-The example below uses manually created Let's Encrypt certs.  This is not recommended for production unless you have setup an automated process to create and renew the certs.  These certs would expire after 90 days.
+The example below uses manually created Let's Encrypt certs.  This is **not recommended for production** unless you have setup an automated process to create and renew the certs.
+These certs would expire after 90 days.
+
+Azure Key Vault can help to automate issuance and renewal or certificates for production environments.
 
 Launch a bash shell (e.g. Git Bash on Windows).
 
 ```sh
- git clone https://github.com/acmesh-official/acme.sh.git
+git clone https://github.com/acmesh-official/acme.sh.git
 
- cd acme.sh/
+cd acme.sh/
 chmod +x acme.sh
 
 source ./aro4-env.sh
 
-# Issue a new cert for domain api.aro.dockertutorial.technology
+# Issue a new cert for domain api.aro.<DOMAIN>
 ./acme.sh --issue --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 
 [Fri Aug 21 03:22:32 AEST 2020] Using CA: https://acme-v02.api.letsencrypt.org/directory
@@ -136,3 +140,10 @@ oc patch ingresscontroller.operator default \
      '{"spec":{"defaultCertificate": {"name": "star-apps-custom-domain"}}}' \
      -n openshift-ingress-operator
 ```
+
+References
+==========
+
+* [Prepare a custom domain for your cluster](https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster#prepare-a-custom-domain-for-your-cluster-optional)
+* [Replacing the default ingress certificate](https://docs.openshift.com/container-platform/4.6/security/certificates/replacing-default-ingress-certificate.html)
+* [Adding API server certificates](https://docs.openshift.com/container-platform/4.6/security/certificates/api-server.html)

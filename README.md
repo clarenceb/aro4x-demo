@@ -1,26 +1,36 @@
-Azure Red Hat OpenShift 4
-=========================
+Azure Red Hat OpenShift 4 - Demo
+================================
+
+Demonstration of various Azure Red Hat Openshift features and basic steps to create and configure a cluster.
+Always refer to the [official docs](https://docs.microsoft.com/en-us/azure/openshift/) for the latest up-to-date documentation as things may have changed since this was last updated.
 
 Prerequisites
 -------------
 
-* Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+* Install the latest [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 * Log in to your Azure subscription from a console window:
 
 ```sh
 az login
-# Follow SSO prompts
+# Follow SSO prompts to authenticate
 az account list -o table
 az account set -s <subscription_id>
 ```
 
-* Register the `Microsoft.RedHatOpenShift` resource provider to be able to create ARO clusters:
+* Register the `Microsoft.RedHatOpenShift` resource provider to be able to create ARO clusters (only required once per Azure subscription):
 
 ```sh
 az provider register -n Microsoft.RedHatOpenShift --wait
 ```
 
 * Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
+
+```sh
+wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz
+tar -zxvf openshift-client-linux.tar.gz -C openshift oc
+sudo mv oc /usr/local/bin/
+```
+
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
 * (Optional) Install the `htpasswd` utility if you want to try HTPasswd as an OCP Identity Provider:
 
@@ -39,6 +49,9 @@ cp aro4-env.sh.template aro4-env.sh
 
 Create the cluster virtual network
 ----------------------------------
+
+The VNET and subnet sizes here are for illustrative purposes only.
+You need to design the network accordingly to your scale needs and existing networks (to avoid overlaps).
 
 ```sh
 # Source variables into your shell environment
@@ -98,6 +111,13 @@ az aro create \
 # pull-secret: OPTIONAL, but recommended
 # domain: OPTIONAL custom domain for ARO (set in aro4-env.sh)
 ```
+
+Change Ingress Controller (public to private)
+---------------------------------------------
+
+If you have created a cluster with a public ingress (default) you can change that to private later or add a second ingress to handle private traffic whilst still serving public traffic.
+
+TODO
 
 Create a private cluster
 ------------------------
@@ -220,7 +240,7 @@ az vm open-port --port 3389 --resource-group $RESOURCEGROUP --name jumpbox
 
 ### Connect to the utility host
 
-Connect to the `jumpbox` host using the Bastion connection type and enter the username (`azureuser`) and password (value of `$winpass`) used above.
+Connect to the `jumpbox` host using the **Bastion** connection type and enter the username (`azureuser`) and password (use the value of `$winpass` set above).
 
 Install Microsoft Edge browser:
 
@@ -231,6 +251,8 @@ $Url = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/c39f1d27-
 Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile "\MicrosoftEdgeEnterpriseX64.msi"
 Start-Process msiexec.exe -Wait -ArgumentList '/I \MicrosoftEdgeEnterpriseX64.msi /norestart /qn'
 ```
+
+Or get the latest file from [here](https://www.microsoft.com/en-us/edge/business/download).
 
 Install utilities:
 
@@ -252,7 +274,7 @@ Given this is a Windows jumpbox, you may need to install a Bash shell like Git B
 (Optional) Provision an Application Gateway v2 for TLS and WAF
 --------------------------------------------------------------
 
-This approach is not using the AppGw Ingress Controller but rather deploying an App Gateway WAFv2 in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.
+This approach is not using the AppGw Ingress Controller but rather deploying an App Gateway WAFv2 in front of the ARO cluster and load-balancing traffic to the exposed ARO Routes for services.  This method can be used to selectively expose private routes for public access rahter than exposing the route directly.
 
 ```sh
 az network vnet subnet create \
