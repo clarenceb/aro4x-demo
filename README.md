@@ -166,7 +166,7 @@ az network public-ip create -g $RESOURCEGROUP -n bastion-ip --sku Standard
 ### Create the Bastion service
 
 ```sh
-az network bastion create --name bastion-service --public-ip-address bastion-ip --resource-group $RESOURCEGROUP --vnet-name utils-vnet --location $LOCATION
+az network bastion create --name bastion-service --public-ip-address bastion-ip --resource-group $RESOURCEGROUP --vnet-name $UTILS_VNET --location $LOCATION
 ```
 
 ### Peer the bastion VNET and the ARO VNET
@@ -183,7 +183,7 @@ vNet1Id=$(az network vnet show \
 # Get the id for myVirtualNetwork2.
 vNet2Id=$(az network vnet show \
   --resource-group $RESOURCEGROUP \
-  --name utils-vnet \
+  --name $UTILS_VNET \
   --query id \
   --out tsv)
 
@@ -197,7 +197,7 @@ az network vnet peering create \
 az network vnet peering create \
   --name utils-aro-peering \
   --resource-group $RESOURCEGROUP \
-  --vnet-name utils-vnet \
+  --vnet-name $UTILS_VNET \
   --remote-vnet $vNet1Id \
   --allow-vnet-access
 ```
@@ -207,7 +207,7 @@ az network vnet peering create \
 ```sh
 az network vnet subnet create \
   --resource-group $RESOURCEGROUP \
-  --vnet-name utils-vnet \
+  --vnet-name $UTILS_VNET \
   --name utils-hosts \
   --address-prefixes 10.0.5.0/24 \
   --service-endpoints Microsoft.ContainerRegistry
@@ -226,7 +226,7 @@ az vm create \
   --resource-group $RESOURCEGROUP \
   --name jumpbox \
   --image MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest \
-  --vnet-name utils-vnet \
+  --vnet-name $UTILS_VNET \
   --subnet utils-hosts \
   --public-ip-address "" \
   --admin-username azureuser \
@@ -252,11 +252,12 @@ Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile "\MicrosoftEdgeEnterpriseX
 Start-Process msiexec.exe -Wait -ArgumentList '/I \MicrosoftEdgeEnterpriseX64.msi /norestart /qn'
 ```
 
-Or get the latest file from [here](https://www.microsoft.com/en-us/edge/business/download).
+Or you can [Download and deploy Microsoft Edge for business](https://www.microsoft.com/en-us/edge/business/download).
 
 Install utilities:
 
 * Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+* Install [Git For Windows](https://git-scm.com/) so you have access to a Bash shell
 * Log in to your Azure subscription from a console window:
 
 ```sh
