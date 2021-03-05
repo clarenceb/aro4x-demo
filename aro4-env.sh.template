@@ -7,4 +7,5 @@ export LOCATION=<location> # Choose your region
 export CLUSTER=cluster        # Set your cluster name
 export RESOURCEGROUP="aro-v4"
 export VNET=aro-vnet
+export UTILS_VNET=utils-vnet
 export DOMAIN="<your-domain>" # Optional, if you want to set a customer domain for ARO

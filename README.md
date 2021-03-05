@@ -609,6 +609,11 @@ Deploy a demo app
 
 Follow the [Demo](./Demo.md) steps to deploy a sample microservices app.
 
+Automation with Bicep (ARM DSL)
+-------------------------------
+
+See [Bicep](./automation/README.md) automation example.
+
 (Optional) Delete cluster
 -------------------------
 
