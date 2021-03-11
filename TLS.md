@@ -179,16 +179,16 @@ Take note of the `Domain` and `TXT value` fields as these are required for Let's
 
 Now that you have valid certificates you can proceed with confguring OpenShift to trust your customer domain with these certs.
 
-Configure the Ingress router with custom certificates
------------------------------------------------------
+Configure the API server with custom certificates
+-------------------------------------------------
 
-For this step we assume you have these files:
+For this step we assume you have these files for the domain `api.<DOMAIN>`:
 
 * `fullchain.cer` certificate bundle
 * `file.key` certificate private key
 * `ca.cer` CA certificate bundle
 
-Login to the ARO cluster with `oc` CLI:
+Login to the ARO cluster with `oc` CLI (if required):
 
 ```sh
 KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query "kubeadminPassword" -o tsv)
@@ -199,7 +199,7 @@ oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
 oc status
 ```
 
-Configure the cluster certs:
+Configure the API Server certs:
 
 ```sh
 cd ~/.acme.sh/api.$DOMAIN
@@ -220,8 +220,31 @@ oc patch apiserver cluster \
 "servingCertificate": {"name": "api-custom-domain"}}]}}}'
 
 oc get apiserver cluster -o yaml
+```
 
+Configure the Ingress Router with custom certificates
+-----------------------------------------------------
 
+For this step we assume you have these files for the domain `*.apps.<DOMAIN>`:
+
+* `fullchain.cer` certificate bundle
+* `file.key` certificate private key
+* `ca.cer` CA certificate bundle
+
+Login to the ARO cluster with `oc` CLI (if required):
+
+```sh
+KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query "kubeadminPassword" -o tsv)
+KUBEADMIN_PASSWD=$(echo $KUBEADMIN_PASSWD | sed 's/\r//g')
+API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
+API_URL=$(echo $API_URL | sed 's/\r//g')
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
+oc status
+```
+
+Configure the (default) Ingress Router certs:
+
+```sh
 cd ~/.acme.sh/\*.apps.$DOMAIN/
 
 # Replacing the default ingress certificate
