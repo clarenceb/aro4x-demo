@@ -573,6 +573,16 @@ Ensure you have at least one other cluster-admin, sign in as that user then you 
 oc delete secrets kubeadmin -n kube-system
 ```
 
+Set up logging with Elasticsearch and Kibana or log forwarding to a Syslog server
+---------------------------------------------------------------------------------
+
+See [logging/](./logging/)
+
+Setup egress firewall with Azure Firewall
+-----------------------------------------
+
+See [firewall/](./firewall/)
+
 Onboard to Azure Monitor
 ------------------------
 
