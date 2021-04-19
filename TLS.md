@@ -283,13 +283,15 @@ Log into the OpenShift portal - this will test the API Server.
 Deploy a simple NGINX pod and expose it via a route to test the private ingress route works witrh a custom domain:
 
 ```sh
+oc new-project nginx-demo
+oc adm policy add-scc-to-user anyuid system:serviceaccount:nginx-demo:default
 oc new-app --docker-image nginx:latest
 oc create route edge nginx --service=nginx
 oc get route
-#  nginx-default.apps.a<DOMAIN>
+#  nginx-nginx-demo.apps.<DOMAIN>
 ```
 
-Access your TLS endpoint via the private domain: `https://nginx-default.apps.a<DOMAIN>` on your Bastion host.
+Access your TLS endpoint via the private domain: `https://nginx-nginx-demo.apps.<DOMAIN>` on your Bastion host.
 
 To expose this publicly, you can use an Azure Application Gateway (see [README](./README.md) or create a second public Ingress router and expose the service via that router.
 
