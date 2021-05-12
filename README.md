@@ -4,6 +4,23 @@ Azure Red Hat OpenShift 4 - Demo
 Demonstration of various Azure Red Hat Openshift features and basic steps to create and configure a cluster.
 Always refer to the [official docs](https://docs.microsoft.com/en-us/azure/openshift/) for the latest up-to-date documentation as things may have changed since this was last updated.
 
+Index
+-----
+
+* [Prerequisites](#Prerequisites)
+* [VNET setup](#create-the-cluster-virtual-network)
+* [Create a default cluster](#create-a-default-cluster)
+* [Create a private cluster](#create-a-private-cluster)
+* [Configure Custom Domain and TLS](./TLS.md)
+* [Configure bastion host access](#optional-configure-bastion-vnet-and-host-for-private-cluster-access)
+* [Use an App Gateway](#optional-provision-an-application-gateway-v2-for-tls-and-waf)
+* [Configure Identity Providers](#add-an-identity-provider-to-add-other-users)
+* [Setup user roles](#setup-user-roles)
+* [Setup in-cluster logging - Elasticsearch and Kibana](./logging)
+* [Setup egress firewall - Azure Firewall](./firewall)
+* [Onboard to Azure Monitor](#onboard-to-azure-monitor)
+* [Deploy a demo app](./Demo.md)
+
 Prerequisites
 -------------
 
