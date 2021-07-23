@@ -103,8 +103,9 @@ az network firewall application-rule create -g $RESOURCEGROUP -f aro-private \
 Test egress connectivity from ARO (before applying egress FW):
 
 ```sh
-oc apply -f firewall/egress-test-pod.yaml
-oc exec -it centos -- /bin/bash
+oc create ns test
+oc apply -f firewall/egress-test-pod.yaml -n test
+oc exec -it centos -n test -- /bin/bash
 curl -i https://www.microsoft.com/
 #HTTP/2 200
 # ...
@@ -134,6 +135,7 @@ If you have enabled Diagnostic settings on the Firewall and enabled `AzureFirewa
 ```sh
 AzureDiagnostics
 | where msg_s contains "Action: Deny"
+| where  msg_s contains "microsoft"
 | limit 10
 | order by TimeGenerated desc
 | project TimeGenerated, ResourceGroup, msg_s
