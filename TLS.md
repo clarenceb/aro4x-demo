@@ -1,5 +1,5 @@
-Custom domain and certs setup
-=============================
+Custom domain and TLS certs setup
+=================================
 
 Setup custom domain and certs for your cluster.
 
@@ -8,7 +8,7 @@ See official docs: https://docs.microsoft.com/en-us/azure/openshift/tutorial-cre
 Pre-requisites
 --------------
 
-* You'll need to own a domain and have a access to DNS to create A/TXT records for that domain
+* You'll need to own a domain and have a access to DNS (public or private zone) to create A/TXT records for that domain
 * You'll need CA signed certificate and private key (e.g. wildcard domain) - you can use Let's encrypt to test this out with free certs
 
 [Azure Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/certificates/certificate-scenarios) can help to automate issuance and renewal or certificates for production environments.
@@ -31,14 +31,16 @@ Configure DNS for default ingress router
 
 ```sh
 # Retrieve the Ingress IP for Azure DNS records
-INGRESS_IP="$( az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles[0].ip' -o tsv)"
+INGRESS_IP="$(az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles[0].ip' -o tsv)"
 ```
 
 This may be a public or private IP, depending on the ingress visibility you selected.
 
 Create your Azure DNS zone for `$DOMAIN`.
 
-Here we'll show how to do this for a private zone, assuming you created a private cluster and have a set up bastion host in the "utils-vnet".
+Here we'll show how to do this for a private zone, assuming you created a private cluster and have a set up bastion host in the "utils-vnet" as per the main [README](./README.md).
+
+Create the Private DNS zone and link it to the "utils-vnet" so that the DNS records can be resolved from the bastion host in that VNET:
 
 ```sh
 az network private-dns zone create -g $RESOURCEGROUP -n $DOMAIN
@@ -52,8 +54,8 @@ az network private-dns record-set a add-record \
   -n '*.apps' \
   -a $INGRESS_IP
 
-# Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
-az network private-dns record-set a update   -g $RESOURCEGROUP   -z $DOMAIN   -n '*.apps' --set ttl=300
+# Optional (good for initial testing): Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
+az network private-dns record-set a update -g $RESOURCEGROUP   -z $DOMAIN   -n '*.apps' --set ttl=300
 ```
 
 Configure DNS for API server endpoint
@@ -76,15 +78,16 @@ az network private-dns record-set a add-record \
   -n 'api' \
   -a $API_SERVER_IP
 
-# Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
+# Optional (good for initial testing): Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
 az network private-dns record-set a update   -g $RESOURCEGROUP   -z $DOMAIN   -n 'api' --set ttl=300
 ```
 
 Generate Let's Encrypt Certificates for API Server and default Ingress Router
 -----------------------------------------------------------------------------
 
-The example below uses manually created Let's Encrypt certs.  This is **not recommended for production** unless you have setup an automated process to create and renew the certs.
-These certs would expire after 90 days.
+The example below uses manually created Let's Encrypt certs.  This is **not recommended for production** unless you have setup an automated process to create and renew the certs (e.g. using the [Cert-Manager](https://www.redhat.com/sysadmin/cert-manager-operator-openshift) operator).
+
+These certs will expire after 90 days.
 
 **Note:** this method requires public DNS to issue the certificates since DNS challenge is used.  Once the certificate is issued you can delete the public records if desired (for example if you created a private ARO cluster and intend to use Azure DNS private record sets).
 
@@ -294,6 +297,51 @@ oc get route
 Access your TLS endpoint via the private domain: `https://nginx-nginx-demo.apps.<DOMAIN>` on your Bastion host.
 
 To expose this publicly, you can use an Azure Application Gateway (see [README](./README.md) or create a second public Ingress router and expose the service via that router.
+
+Renew expired certs
+-------------------
+
+Delete expired certs:
+
+```sh
+rm -rf ~/dev/acme.sh/*
+```
+
+Generate a new cert request on api domain:
+
+```sh
+./acme.sh --issue --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+# Add the TXT record value to your Azure DNS domain, then...
+./acme.sh --renew --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+
+./acme.sh --issue --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+# Add the TXT record value to your Azure DNS domain, then...
+./acme.sh --renew --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+```
+
+Log into `oc` CLI:
+
+```sh
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL --insecure-skip-tls-verify=true
+```
+
+Delete old CA cert and config:
+
+```sh
+oc delete configmap custom-ca -n openshift-config
+oc delete secret star-apps-custom-domain -n openshift-ingress
+oc delete secret api-custom-domain -n openshift-config
+```
+
+Follow steps above in **Configure the API server with custom certificates** and **Configure the Ingress Router with custom certificates**.
+
+You may need to recycle all API Server pods:
+
+```sh
+oc -n openshift-apiserver delete pods --all
+```
+
+Access the ARO console URL and log in as usual.
 
 References
 ----------
