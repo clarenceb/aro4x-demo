@@ -20,4 +20,6 @@ WorkspaceProps.json
 aro4-env.sh
 **/*-sp.json
 
+/openshift-client-linux.tar.gz
+
 
