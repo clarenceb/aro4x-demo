@@ -4,7 +4,7 @@
 
 aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP'].objectId" -o tsv)"
 
-echo "The Azure Red Hat OpenShift RP ($aroRpObjectId) currently the following role assignments:"
+echo "The Azure Red Hat OpenShift RP ($aroRpObjectId) currently has the following role assignments:"
 az role assignment list --assignee $aroRpObjectId -o table
 
 failedClusterResourceGroups="$(az aro list --query "[?provisioningState=='Failed'].{resourceGroup:clusterProfile.resourceGroupId}" -o tsv)"
