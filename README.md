@@ -20,6 +20,7 @@ Index
 * [Setup egress firewall - Azure Firewall](./firewall)
 * [Onboard to Azure Monitor](#onboard-to-azure-monitor)
 * [Deploy a demo app](./Demo.md)
+* [Automation with Bicep (ARM DSL)](./automation)
 
 Prerequisites
 -------------
