@@ -651,6 +651,8 @@ Disable monitoring (if enabled):
 helm del azmon-containers-release-1
 ```
 
+or if using Arc-enabled monitoring, follow [these cleanup steps](https://github.com/clarenceb/aro4x-demo/tree/master/monitoring#option-2---arc-enabled-kubernetes-monioring-recommended).
+
 ```sh
 az aro delete -g $RESOURCEGROUP -n $CLUSTER
 
