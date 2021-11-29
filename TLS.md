@@ -36,7 +36,30 @@ INGRESS_IP="$(az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'ingressProfiles
 
 This may be a public or private IP, depending on the ingress visibility you selected.
 
-Create your Azure DNS zone for `$DOMAIN`.
+Create your Azure DNS zone for `$DOMAIN` (this can be a public or private zone).
+
+Public Zone Ingress Configuration
+---------------------------------
+
+```sh
+az network dns zone create -g $RESOURCEGROUP -n $DOMAIN
+# Or use an existing zone if it exists.
+# You need to have configured your domain name registrar to point to this zone.
+
+az network dns zone create  --parent-name $DOMAIN -g $RESOURCEGROUP -n apps.$DOMAIN
+
+az network dns record-set a add-record \
+  -g $RESOURCEGROUP \
+  -z apps.$DOMAIN \
+  -n '*' \
+  -a $INGRESS_IP
+
+# Optional (good for initial testing): Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
+az network dns record-set a update -g $RESOURCEGROUP -z apps.$DOMAIN -n '*' --set ttl=300
+```
+
+Private Zone Ingress Configuration
+----------------------------------
 
 Here we'll show how to do this for a private zone, assuming you created a private cluster and have a set up bastion host in the "utils-vnet" as per the main [README](./README.md).
 
@@ -55,7 +78,7 @@ az network private-dns record-set a add-record \
   -a $INGRESS_IP
 
 # Optional (good for initial testing): Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
-az network private-dns record-set a update -g $RESOURCEGROUP   -z $DOMAIN   -n '*.apps' --set ttl=300
+az network private-dns record-set a update -g $RESOURCEGROUP -z $DOMAIN -n '*.apps' --set ttl=300
 ```
 
 Configure DNS for API server endpoint
@@ -68,10 +91,32 @@ API_SERVER_IP="$(az aro show -n $CLUSTER -g $RESOURCEGROUP --query 'apiserverPro
 
 This may be a public or private IP, depending on the ingress visibility you selected.
 
+Create your Azure DNS zone for `$DOMAIN` (this can be a public or private zone).
+
+Public Zone API Server Configuration
+------------------------------------
+
+```sh
+az network dns zone create --parent-name $DOMAIN -g $RESOURCEGROUP -n api.$DOMAIN
+
+# Create an `api` A record to point to the Ingress Load Balancer IP
+az network dns record-set a add-record \
+  -g $RESOURCEGROUP \
+  -z api.$DOMAIN \
+  -n '@' \
+  -a $API_SERVER_IP
+
+# Optional (good for initial testing): Adjust default TTL from 1 hour (choose an appropriate value, here 5 mins is used)
+az network dns record-set a update -g $RESOURCEGROUP -z api.$DOMAIN -n '@' --set ttl=300
+```
+
+Private Zone API Server Configuration
+-------------------------------------
+
 Again, we'll show how to do this for a private zone, assuming you created a private cluster and have a set up bastion host in the "utils-vnet".
 
 ```sh
-# Create a wildcard `*.apps` A record to point to the Ingress Load Balancer IP
+# Create an `api` A record to point to the Ingress Load Balancer IP
 az network private-dns record-set a add-record \
   -g $RESOURCEGROUP \
   -z $DOMAIN \
@@ -98,7 +143,7 @@ git clone https://github.com/acmesh-official/acme.sh.git
 chmod +x acme.sh/acme.sh
 
 # Issue a new cert for domain api.aro.<DOMAIN>
-./acme.sh --issue --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+./acme.sh --issue --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 ```
 
 Sample output:
@@ -136,7 +181,7 @@ Once you have the public DNS zones ready you can add the necessary records to va
 # Step 1 - Add the `_acme-challenge` TXT value to your public `api.<DOMAIN>` zone.
 
 # Step 2 - Download the certs and key from Let's Encrypt
-./acme.sh --renew --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+./acme.sh --renew --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 
 # Note: On Windows Server, you might need to install Cygwin (https://www.cygwin.com/install.html) to handle files
 # starting with an asterix ('*') -- Git bash won't work here.  Install Cywin and choose the `base` component to install.
@@ -149,7 +194,7 @@ Once you have the public DNS zones ready you can add the necessary records to va
 # dos2unix acme.sh
 
 # Issue a new cert for domain *.apps.<DOMAIN>
-./acme.sh --issue --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+./acme.sh --issue --server https://acme-v02.api.letsencrypt.org/directory --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 ```
 
 Sample output:
@@ -177,7 +222,7 @@ Take note of the `Domain` and `TXT value` fields as these are required for Let's
 # Step 1 - Add the `_acme-challenge` TXT value to your public `apps.<DOMAIN>` zone.
 
 # Step 2 - Download the certs and key from Let's Encrypt
-./acme.sh --renew --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+./acme.sh --renew --dns --server https://acme-v02.api.letsencrypt.org/directory -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 ```
 
 Now that you have valid certificates you can proceed with confguring OpenShift to trust your customer domain with these certs.
@@ -198,7 +243,7 @@ KUBEADMIN_PASSWD=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query
 KUBEADMIN_PASSWD=$(echo $KUBEADMIN_PASSWD | sed 's/\r//g')
 API_URL=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
 API_URL=$(echo $API_URL | sed 's/\r//g')
-oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL
+oc login -u kubeadmin -p $KUBEADMIN_PASSWD --server=$API_URL --insecure-skip-tls-verify=true
 oc status
 ```
 
@@ -272,6 +317,8 @@ oc patch ingresscontroller.operator default \
      --type=merge -p \
      '{"spec":{"defaultCertificate": {"name": "star-apps-custom-domain"}}}' \
      -n openshift-ingress-operator
+
+rm ./file.key
 ```
 
 Test your custom domain
@@ -310,13 +357,13 @@ rm -rf ~/dev/acme.sh/*
 Generate a new cert request on api domain:
 
 ```sh
-./acme.sh --issue --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+./acme.sh --issue --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 # Add the TXT record value to your Azure DNS domain, then...
-./acme.sh --renew --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+./acme.sh --renew --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 
-./acme.sh --issue --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+./acme.sh --issue --server https://acme-v02.api.letsencrypt.org/directory --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 # Add the TXT record value to your Azure DNS domain, then...
-./acme.sh --renew --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
+./acme.sh --renew --server https://acme-v02.api.letsencrypt.org/directory --dns -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 ```
 
 Log into `oc` CLI:
