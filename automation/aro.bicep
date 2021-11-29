@@ -1,16 +1,17 @@
-param clusterName string = 'cluster'
 param domain string
-param podCidr string = '10.128.0.0/14'
-param serviceCidr string = '172.30.0.0/16'
-param apiServerVisibility string = 'Public'
-param ingressVisibility string = 'Public'
-param masterVmSku string = 'Standard_D8s_v3'
-
 param masterSubnetId string
 param workerSubnetId string
 param clientId string
 param clientSecret string
 param pullSecret string
+param clusterName string
+
+param podCidr string = '10.128.0.0/14'
+param serviceCidr string = '172.30.0.0/16'
+param apiServerVisibility string = 'Public'
+param ingressVisibility string = 'Public'
+param masterVmSku string = 'Standard_D8s_v3'
+param prefix string = 'aro'
 
 var ingressSpec = [
   {
@@ -26,13 +27,16 @@ var workerSpec = {
   count: 3
 }
 
+var nodeRgName = '${prefix}-${take(uniqueString(resourceGroup().id, prefix), 5)}'
+var nodeRgId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${nodeRgName}'
+
 resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
   name: clusterName
   location: resourceGroup().location
   properties: {
     clusterProfile: {
       domain: domain
-      resourceGroupId: resourceGroup().id
+      resourceGroupId: nodeRgId
       pullSecret: pullSecret
     }
     apiserverProfile: {

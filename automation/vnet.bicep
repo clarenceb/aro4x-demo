@@ -66,6 +66,5 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-05-01' = {
 }
 
 output vnetId string = vnet.id
-output vnet object = vnet
 output masterSubnetId string = vnet.properties.subnets[0].id
 output workerSubnetId string = vnet.properties.subnets[1].id
