@@ -661,6 +661,13 @@ az network vnet subnet delete -g $RESOURCEGROUP --vnet-name $VNET -n worker-subn
 
 (optional) Delete Azure AD application (if using Azure AD for Auth)
 
+Clean up clusters in a failed state
+-----------------------------------
+
+```sh
+./cleanup-failed-clusters.sh
+```
+
 References
 ----------
 
