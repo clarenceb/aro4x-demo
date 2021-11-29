@@ -44,7 +44,7 @@ az provider register -n Microsoft.RedHatOpenShift --wait
 
 ```sh
 wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz
-tar -zxvf openshift-client-linux.tar.gz -C openshift oc
+tar -zxvf openshift-client-linux.tar.gz oc
 sudo mv oc /usr/local/bin/
 ```
 
@@ -435,10 +435,10 @@ See the [CLI steps](https://docs.microsoft.com/en-us/azure/openshift/configure-a
 Configure OAuth callback URL:
 
 ```sh
-domain=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query clusterProfile.domain -o tsv)
-location=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query location -o tsv)
-apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
-webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv)
+domain=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query clusterProfile.domain -o tsv | tr -d '[:space:]')
+location=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query location -o tsv | tr -d '[:space:]')
+apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv | tr -d '[:space:]')
+webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv | tr -d '[:space:]')
 
 # If using default domain
 oauthCallbackURL=https://oauth-openshift.apps.$domain.$location.aroapp.io/oauth2callback/AAD
@@ -461,7 +461,7 @@ appId=$(az ad app create \
   --reply-urls $oauthCallbackURL \
   --password $clientSecret)
 
-tenantId=$(az account show --query tenantId -o tsv)
+tenantId=$(az account show --query tenantId -o tsv | tr -d '[:space:]')
 ```
 
 Create manifest file for optional claims to include in the ID Token:
