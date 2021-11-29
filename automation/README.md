@@ -8,7 +8,7 @@ You will need owner level access on the Subscription to execute the deployment.
 You'll also need permission to create an Azure AD Service Principal.
 
 ```sh
-source ./aro4-env.sh
+source ../aro4-env.sh
 
 sp_display_name="aro-demo-sp"
 az ad sp create-for-rbac -n http://$sp_display_name > aro-sp.json
@@ -32,6 +32,8 @@ az deployment group create \
         domain=$domain \
         pullSecret=$pullSecret
 ```
+
+Then you can proceed to configure the [DNS and TLS settings](../TLS.md).
 
 Resources
 ---------
