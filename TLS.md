@@ -171,14 +171,25 @@ Sample output:
 
 Take note of the `Domain` and `TXT value` fields as these are required for Let's Encrypt to validate that you own the domain and can therefore issue you the certificates.
 
+```sh
+API_TXT_RECORD="xxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
 Create your public Azure DNS zone for `$DOMAIN` and connect your Domain Registrar to the Azure DNS servers for your public zone (steps not shown here, see Azure DNS docs).
 
 Create two child zones `api.$DOMAIN` and `apps.$DOMAIN`.
 
-Once you have the public DNS zones ready you can add the necessary records to validate ownership of the domain.
+Once you have the public DNS zones ready you can add the necessary records to validate ownership of the domain:
 
 ```sh
 # Step 1 - Add the `_acme-challenge` TXT value to your public `api.<DOMAIN>` zone.
+az network dns record-set txt add-record \
+  -g $RESOURCEGROUP \
+  -z api.$DOMAIN \
+  -n '_acme-challenge' \
+  -v $API_TXT_RECORD
+
+az network dns record-set txt update -g $RESOURCEGROUP -z api.$DOMAIN -n '_acme-challenge' --set ttl=300
 
 # Step 2 - Download the certs and key from Let's Encrypt
 ./acme.sh --renew --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
@@ -219,7 +230,20 @@ Sample output:
 Take note of the `Domain` and `TXT value` fields as these are required for Let's Encrypt to validate that you own the domain and can therefore issue you the certificates.
 
 ```sh
+APPS_TXT_RECORD="xxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+Once you have the public DNS zones ready you can add the necessary records to validate ownership of the domain:
+
+```sh
 # Step 1 - Add the `_acme-challenge` TXT value to your public `apps.<DOMAIN>` zone.
+az network dns record-set txt add-record \
+  -g $RESOURCEGROUP \
+  -z apps.$DOMAIN \
+  -n '_acme-challenge' \
+  -v $APPS_TXT_RECORD
+
+az network dns record-set txt update -g $RESOURCEGROUP -z apps.$DOMAIN -n '_acme-challenge' --set ttl=300
 
 # Step 2 - Download the certs and key from Let's Encrypt
 ./acme.sh --renew --dns --server https://acme-v02.api.letsencrypt.org/directory -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
@@ -329,6 +353,10 @@ az aro list-credentials -n $CLUSTER -g $RESOURCEGROUP
 ```
 
 Log into the OpenShift portal - this will test the API Server.
+
+```sh
+az aro show -n $CLUSTER -g $RESOURCEGROUP --query consoleProfile.url -o tsv
+```
 
 Deploy a simple NGINX pod and expose it via a route to test the private ingress route works witrh a custom domain:
 
