@@ -18,7 +18,8 @@ clientSecret="$(jq -r .password <aro-sp.json)"
 pullSecret=$(cat pull-secret.txt)
 
 clientObjectId="$(az ad sp list --filter "AppId eq '$clientId'" --query "[?appId=='$clientId'].objectId" -o tsv)"
-aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP'].objectId" -o tsv)"
+ 
+aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP']" --query "[?appOwnerTenantId=='$tenantId'].objectId" -o tsv | head -1)"
 
 az group create -n $RESOURCEGROUP -l $LOCATION
 
@@ -29,7 +30,7 @@ az deployment group create \
         clientObjectId=$clientObjectId \
         clientSecret=$clientSecret \
         aroRpObjectId=$aroRpObjectId \
-        domain=$domain \
+        domain=$DOMAIN \
         pullSecret=$pullSecret
 ```
 
