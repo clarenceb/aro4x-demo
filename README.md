@@ -504,7 +504,7 @@ az ad app permission add \
 
 Login to oc CLI as `kubeadmin`.
 
-Create a secret o store AAD application secret:
+Create a secret to store AAD application secret:
 
 ```sh
 oc create secret generic openid-client-secret-azuread \

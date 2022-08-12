@@ -59,6 +59,8 @@ az k8s-extension create \
     --configuration-settings logAnalyticsWorkspaceResourceID=$WORKSPACE_ID
 ```
 
+Check the "aro-arc" resource in the Azure Portal.  Click "Insights" to view the cluster health and metrics.
+
 To remove Arc enabled Monitoring (won't delete the Log Analytics workspace):
 
 ```sh
