@@ -47,6 +47,7 @@ az provider register -n Microsoft.RedHatOpenShift --wait
 wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz
 tar -zxvf openshift-client-linux.tar.gz oc
 sudo mv oc /usr/local/bin/
+oc version
 ```
 
 * (Optional) Install [Helm v3](https://helm.sh/docs/intro/install/) if you want to integrate with Azure Monitor
