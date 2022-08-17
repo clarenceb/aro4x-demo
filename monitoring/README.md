@@ -46,7 +46,7 @@ kubectl get deployments,pods -n azure-arc
 Create a [Log Analytics Workspace](https://docs.microsoft.com/en-us/azure/azure-monitor/logs/quick-create-workspace-cli).
 
 ```sh
-WORKSPACE_NAME="arologs"
+WORKSPACE_NAME="aro-logs"
 
 WORKSPACE_ID="$(az monitor log-analytics workspace show -n $WORKSPACE_NAME -g $ARC_RESOURCE_GROUP --query id -o tsv)"
 
