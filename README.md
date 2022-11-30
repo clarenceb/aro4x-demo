@@ -4,6 +4,10 @@ Azure Red Hat OpenShift 4 - Demo
 Demonstration of various Azure Red Hat Openshift features and basic steps to create and configure a cluster.
 Always refer to the [official docs](https://docs.microsoft.com/en-us/azure/openshift/) for the latest up-to-date documentation as things may have changed since this was last updated.
 
+Note:
+
+* Red Hat's [Managed OpenShift Black Belt Team](https://mobb.ninja/) also have great documentation on configuring ARO so check that out.
+
 Index
 -----
 
@@ -605,33 +609,7 @@ See [firewall/](./firewall/)
 Onboard to Azure Monitor
 ------------------------
 
-Follow [these steps](https://docs.microsoft.com/en-us/azure/azure-monitor/insights/container-insights-azure-redhat4-setup) to onboard your ARO 4.3 cluster to Azure Monitor.
-
-```sh
-curl -o enable-monitoring.sh -L https://aka.ms/enable-monitoring-bash-script
-# Edit the script to change the default workspace region:
-# workspaceRegion="eastus"
-# workspaceRegionCode="EUS"
-# or specify the Log Analytics Workpace ID: --workspace-id <workspace-resource-id>
-
-adminUserName=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminUsername' -o tsv)
-adminPassword=$(az aro list-credentials -g $RESOURCEGROUP -n $CLUSTER --query 'kubeadminPassword' -o tsv)
-apiServer=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query apiserverProfile.url -o tsv)
-
-oc login $apiServer -u $adminUserName -p $adminPassword
-# openshift project name for azure monitor for containers
-openshiftProjectName="azure-monitor-for-containers"
-# get the kube config context
-kubeContext=$(oc config current-context)
-
-# get ARO cluster resource ID
-azureAroV4ClusterResourceId=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query id -o tsv)
-
-# Integrate with the default workspace or specify the Log Analytics Worksapce ID as an additional argument
-bash enable-monitoring.sh --resource-id $azureAroV4ClusterResourceId --kube-context $kubeContext # -workspace-id <workspace-resource-id>
-```
-
-Adjust the [logging configuration](https://docs.microsoft.com/en-us/azure/azure-monitor/insights/container-insights-agent-config), if necessary.
+Refer to the [ARO Monitoring README](./monitoring) in this repo.
 
 Deploy a demo app
 -----------------

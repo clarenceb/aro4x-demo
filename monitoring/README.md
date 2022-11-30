@@ -1,13 +1,8 @@
 Azure Monitor integration for ARO
 =================================
 
-Option 1 - Scipt-based Hybrid Monitoring (deprecated)
------------------------------------------------------
-
-[Enable Container Insights](https://docs.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-azure-redhat4-setup) to have ARO monitoring with Azure Monitor.
-
-Option 2 - Arc-enabled Kubernetes Monioring (recommended)
----------------------------------------------------------
+Using Container Insights on ARO via Arc-enabled Kubernetes Monitoring
+---------------------------------------------------------------------
 
 [Connect your ARO cluster to Azure Arc](https://docs.microsoft.com/en-us/azure/azure-arc/kubernetes/quickstart-connect-cluster)
 
@@ -60,6 +55,8 @@ az k8s-extension create \
 ```
 
 Check the "aro-arc" resource in the Azure Portal.  Click "Insights" to view the cluster health and metrics.
+
+Adjust the [logging configuration](https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-agent-config), if necessary.
 
 To remove Arc enabled Monitoring (won't delete the Log Analytics workspace):
 
