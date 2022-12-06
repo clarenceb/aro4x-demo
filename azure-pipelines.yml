@@ -24,7 +24,7 @@ variables:
   value: 10.0.2.0/23
 - name: SERVICEPRINCIPALNAME
   value: sp-aro-test
-- group: aro-platform-auto
+# - group: aro-platform-auto
 
 
 pool:
