@@ -79,4 +79,4 @@ steps:
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
-      az aro create --resource-group $(RESOURCEGROUP) --name $(CLUSTER) --vnet $(AROVNETNAME) --master-subnet $(MASTERSUBNETNAME) --worker-subnet $(WORKERSUBNETNAME) --client-id $(CLIENTID) --client-secret $(CLIENTSECRET)
+      az aro create --resource-group $(RESOURCEGROUP) --name $(CLUSTER) --vnet $(AROVNETNAME) --master-subnet $(MASTERSUBNETNAME) --worker-subnet $(WORKERSUBNETNAME) --client-id $(CLIENTID) --client-secret $(CLIENTSECRET) --debug
