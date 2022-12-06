@@ -1,0 +1,82 @@
+trigger:
+  branches:
+     include:
+      - master
+
+variables:
+- name: LOCATION
+  value: australiaeast
+- name: RESOURCEGROUP
+  value: aro-rg
+- name: CLUSTER
+  value: aro-cluster
+- name: AROVNETNAME
+  value: aro-vnet
+- name: VNETPREFIX
+  value: 10.0.0.0/22
+- name: MASTERSUBNETNAME
+  value: master-subnet
+- name: MASTERSUBNETCIDR
+  value: 10.0.0.0/23
+- name: WORKERSUBNETNAME
+  value: worker-subnet
+- name: WORKERSUBNETCIDR
+  value: 10.0.2.0/23
+- name: SERVICEPRINCIPALNAME
+  value: sp-aro-test
+- group: aro-platform-auto
+
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+# We'll be skipping all the provider such as Redhatopenshift, compute registration
+- task: AzureCLI@2
+  displayName: Create ARO resource group
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az group create --name $(RESOURCEGROUP) --location $(LOCATION)'
+
+- task: AzureCLI@2
+  displayName: Create ARO vnet
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az network vnet create --resource-group $(RESOURCEGROUP) --name $(AROVNETNAME) --address-prefixes $(VNETPREFIX)'
+
+- task: AzureCLI@2
+  displayName: Create master subnet
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az network vnet subnet create --resource-group $(RESOURCEGROUP) --vnet-name $(AROVNETNAME) --name $(MASTERSUBNETNAME) --address-prefixes $(MASTERSUBNETCIDR)'
+
+- task: AzureCLI@2
+  displayName: Create worker subnet
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az network vnet subnet create --resource-group $(RESOURCEGROUP) --vnet-name $(AROVNETNAME) --name $(WORKERSUBNETNAME) --address-prefixes $(WORKERSUBNETCIDR)'
+
+- task: AzureCLI@2
+  displayName: Create worker subnet
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az network vnet subnet update --resource-group $(RESOURCEGROUP) --vnet-name $(AROVNETNAME) --name $(MASTERSUBNETNAME) --disable-private-link-service-network-policies true'
+
+- task: AzureCLI@2
+  displayName: Create ARO cluster
+  inputs:
+    azureSubscription: 'my-azure-subscription'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az aro create --resource-group $(RESOURCEGROUP) --name $(CLUSTER) --vnet $(AROVNETNAME) --master-subnet $(MASTERSUBNETNAME) --worker-subnet $(WORKERSUBNETNAME) --client-id $(CLIENTID) --client-secret $(CLIENTSECRET)
