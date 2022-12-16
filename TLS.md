@@ -67,6 +67,8 @@ Create the Private DNS zone and link it to the "utils-vnet" so that the DNS reco
 
 ```sh
 az network private-dns zone create -g $RESOURCEGROUP -n $DOMAIN
+
+# If you created a Bastion service or have VMs you intend to ue as jump hosts then create a vnet link from the private DNS zone to the VNET where you need to resolve the private domains
 az network private-dns link vnet create -g $RESOURCEGROUP -n PrivateDomainLink \
    -z $DOMAIN -v $UTILS_VNET -e true
 
@@ -132,6 +134,8 @@ Generate Let's Encrypt Certificates for API Server and default Ingress Router
 
 The example below uses manually created Let's Encrypt certs.  This is **not recommended for production** unless you have setup an automated process to create and renew the certs (e.g. using the [Cert-Manager](https://www.redhat.com/sysadmin/cert-manager-operator-openshift) operator).
 
+Refer to this [page](https://mobb.ninja/docs/aro/cert-manager/) for an example of using Cert-Manager and Let's Encrypt to automate this process.
+
 These certs will expire after 90 days.
 
 **Note:** this method requires public DNS to issue the certificates since DNS challenge is used.  Once the certificate is issued you can delete the public records if desired (for example if you created a private ARO cluster and intend to use Azure DNS private record sets).
@@ -177,6 +181,10 @@ API_TXT_RECORD="xxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 Create your public Azure DNS zone for `$DOMAIN` and connect your Domain Registrar to the Azure DNS servers for your public zone (steps not shown here, see Azure DNS docs).
 
+```sh
+PUBLIC_DOMAIN_RESOURCEGROUP="..."
+```
+
 Create two child zones `api.$DOMAIN` and `apps.$DOMAIN`.
 
 Once you have the public DNS zones ready you can add the necessary records to validate ownership of the domain:
@@ -184,12 +192,12 @@ Once you have the public DNS zones ready you can add the necessary records to va
 ```sh
 # Step 1 - Add the `_acme-challenge` TXT value to your public `api.<DOMAIN>` zone.
 az network dns record-set txt add-record \
-  -g $RESOURCEGROUP \
+  -g $PUBLIC_DOMAIN_RESOURCEGROUP \
   -z api.$DOMAIN \
   -n '_acme-challenge' \
   -v $API_TXT_RECORD
 
-az network dns record-set txt update -g $RESOURCEGROUP -z api.$DOMAIN -n '_acme-challenge' --set ttl=300
+az network dns record-set txt update -g $PUBLIC_DOMAIN_RESOURCEGROUP -z api.$DOMAIN -n '_acme-challenge' --set ttl=300
 
 # Step 2 - Download the certs and key from Let's Encrypt
 ./acme.sh --renew --server https://acme-v02.api.letsencrypt.org/directory --dns -d "api.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
@@ -238,18 +246,20 @@ Once you have the public DNS zones ready you can add the necessary records to va
 ```sh
 # Step 1 - Add the `_acme-challenge` TXT value to your public `apps.<DOMAIN>` zone.
 az network dns record-set txt add-record \
-  -g $RESOURCEGROUP \
+  -g $PUBLIC_DOMAIN_RESOURCEGROUP \
   -z apps.$DOMAIN \
   -n '_acme-challenge' \
   -v $APPS_TXT_RECORD
 
-az network dns record-set txt update -g $RESOURCEGROUP -z apps.$DOMAIN -n '_acme-challenge' --set ttl=300
+az network dns record-set txt update -g $PUBLIC_DOMAIN_RESOURCEGROUP -z apps.$DOMAIN -n '_acme-challenge' --set ttl=300
 
 # Step 2 - Download the certs and key from Let's Encrypt
 ./acme.sh --renew --dns --server https://acme-v02.api.letsencrypt.org/directory -d "*.apps.$DOMAIN" --yes-I-know-dns-manual-mode-enough-go-ahead-please --fullchain-file fullchain.cer --cert-file file.crt --key-file file.key
 ```
 
 Now that you have valid certificates you can proceed with confguring OpenShift to trust your customer domain with these certs.
+
+Note: You'll needs these cert/key files on the jumpbox since you'll need to have access to the ARO API server via the CLI.
 
 Configure the API server with custom certificates
 -------------------------------------------------
@@ -363,7 +373,7 @@ Deploy a simple NGINX pod and expose it via a route to test the private ingress 
 ```sh
 oc new-project nginx-demo
 oc adm policy add-scc-to-user anyuid system:serviceaccount:nginx-demo:default
-oc new-app --docker-image nginx:latest
+oc new-app --image nginx:latest
 oc create route edge nginx --service=nginx
 oc get route
 #  nginx-nginx-demo.apps.<DOMAIN>

@@ -169,9 +169,11 @@ az aro create \
 (Optional) Configure custom domain and CA
 -----------------------------------------
 
-If you used the `--domain` flag to create your cluster you'll need to configure DNS and a certificate authority for your API server and apps ingress.
+If you used the `--domain` flag with an FQDN (e.g. `my.domain.com`) to create your cluster you'll need to configure DNS and a certificate authority for your API server and apps ingress.
 
 Follow the steps in [TLS.md](./TLS.md).
+
+If you used a short name (e.g. mycluster) then Azure will use the `aroapp.io` domain and provide certificates for this domain.
 
 (Optional) Configure bastion VNET and host (for private cluster access)
 -----------------------------------------------------------------------
@@ -248,7 +250,7 @@ echo $winpass > winpass.txt
 az vm create \
   --resource-group $RESOURCEGROUP \
   --name jumpbox \
-  --image MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest \
+  --image MicrosoftWindowsServer:WindowsServer:2022-Datacenter:latest \
   --vnet-name $UTILS_VNET \
   --subnet utils-hosts \
   --public-ip-address "" \
@@ -261,11 +263,13 @@ az vm create \
 az vm open-port --port 3389 --resource-group $RESOURCEGROUP --name jumpbox
 ```
 
+**Recommended**: Enable update management or automatic guest OS patching.
+
 ### Connect to the utility host
 
-Connect to the `jumpbox` host using the **Bastion** connection type and enter the username (`azureuser`) and password (use the value of `$winpass` set above).
+Connect to the `jumpbox` host using the **Bastion** connection type and enter the username (`azureuser`) and password (use the value of `$winpass` set above or view the file `winpass.txt`).
 
-Install Microsoft Edge browser:
+Install the Microsoft Edge browser (if you used the Windows Server 2022 image for your VM then you can skip this step):
 
 * Open a Powershell prompt
 
@@ -285,7 +289,7 @@ Install utilities:
 
 ```sh
 az login
-# Follow SSO prompts
+# Follow SSO prompts (or create a Service Principal and login with that)
 az account list -o table
 az account set -s <subscription_id>
 ```
