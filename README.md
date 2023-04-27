@@ -171,9 +171,16 @@ az aro create \
 
 If you used the `--domain` flag with an FQDN (e.g. `my.domain.com`) to create your cluster you'll need to configure DNS and a certificate authority for your API server and apps ingress.
 
-Follow the steps in [TLS.md](./TLS.md).
+If you used a shortname (e.g. "mycluster") with the `--domain` flag then you don't need to setup a custom domain and configure DNS/certs.
+Then you can proceed to configure the [DNS and TLS/Certs settings](../TLS.md), if required - e.g. you set a FQDN custom domain.
 
-If you used a short name (e.g. mycluster) then Azure will use the `aroapp.io` domain and provide certificates for this domain.
+In the later case, you'd get assigned an FQDN ending in `aroapp.io` like so:
+
+```sh
+https://console-openshift-console.apps.<shortname>.<region>.aroapp.io/
+```
+
+If needed, follow the steps in [TLS.md](./TLS.md).
 
 (Optional) Configure bastion VNET and host (for private cluster access)
 -----------------------------------------------------------------------
