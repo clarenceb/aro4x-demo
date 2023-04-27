@@ -15,16 +15,17 @@ az ad sp create-for-rbac -n http://$sp_display_name > aro-sp.json
 
 clientId="$(jq -r .appId <aro-sp.json)"
 clientSecret="$(jq -r .password <aro-sp.json)"
-pullSecret=$(cat pull-secret.txt)
+pullSecret=$(cat ../pull-secret.txt)
+tenantId=$(az account show --query tenantId -o tsv)
 
-clientObjectId="$(az ad sp list --filter "AppId eq '$clientId'" --query "[?appId=='$clientId'].objectId" -o tsv)"
+clientObjectId="$(az ad sp list --filter "AppId eq '$clientId'" --query "[?appId=='$clientId'].id" -o tsv)"
  
-aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP']" --query "[?appOwnerTenantId=='$tenantId'].objectId" -o tsv | head -1)"
+aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP']" --query "[?appOwnerOrganizationId=='$tenantId'].id" -o tsv | head -1)"
 
 az group create -n $RESOURCEGROUP -l $LOCATION
 
 az deployment group create \
-    -f ./automation/main.bicep \
+    -f ./main.bicep \
     -g $RESOURCEGROUP \
     --parameters clientId=$clientId \
         clientObjectId=$clientObjectId \
@@ -34,7 +35,13 @@ az deployment group create \
         pullSecret=$pullSecret
 ```
 
-Then you can proceed to configure the [DNS and TLS settings](../TLS.md).
+Then you can proceed to configure the [DNS and TLS/Certs settings](../TLS.md), if required - e.g. you set a FQDN custom domain.
+If you set only a name e.g. "mycluster" and not a FQDN "mycluster.com.au" then you don't need to set custom DNS and configure custom certs.
+The assigned FQDN whe you only specify the short name will be in the format:
+
+```sh
+https://console-openshift-console.apps.<shortname>.<region>.aroapp.io/
+```
 
 Resources
 ---------
