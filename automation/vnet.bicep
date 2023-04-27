@@ -2,6 +2,7 @@ param vnetName string = 'aro-vnet'
 param vnetCidr string = '10.0.0.0/22'
 param masterSubnetCidr string = '10.0.2.0/24'
 param workerSubnetCidr string = '10.0.3.0/24'
+param location string = resourceGroup().location
 
 var masterSubnet = {
   name: 'master-subnet'
@@ -15,7 +16,7 @@ var workerSubnet = {
 
 resource vnet 'Microsoft.Network/virtualNetworks@2020-05-01' = {
   name: vnetName
-  location: resourceGroup().location
+  location: location
   properties: {
     addressSpace: {
       addressPrefixes: [

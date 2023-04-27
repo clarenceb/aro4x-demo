@@ -2,9 +2,12 @@ param domain string
 param masterSubnetId string
 param workerSubnetId string
 param clientId string
+@secure()
 param clientSecret string
+@secure()
 param pullSecret string
 param clusterName string
+param location string = resourceGroup().location
 
 param podCidr string = '10.128.0.0/14'
 param serviceCidr string = '172.30.0.0/16'
@@ -28,15 +31,14 @@ var workerSpec = {
 }
 
 var nodeRgName = '${prefix}-${take(uniqueString(resourceGroup().id, prefix), 5)}'
-var nodeRgId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${nodeRgName}'
 
 resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
   name: clusterName
-  location: resourceGroup().location
+  location: location
   properties: {
     clusterProfile: {
       domain: domain
-      resourceGroupId: nodeRgId
+      resourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', nodeRgName)
       pullSecret: pullSecret
     }
     apiserverProfile: {
