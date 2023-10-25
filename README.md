@@ -6,7 +6,7 @@ Always refer to the [official docs](https://docs.microsoft.com/en-us/azure/opens
 
 Note:
 
-* Red Hat's [Managed OpenShift Black Belt Team](https://mobb.ninja/) also have great documentation on configuring ARO so check that out.
+* Red Hat's [Managed OpenShift Black Belt Team](https://cloud.redhat.com/experts/) also have great documentation on configuring ARO so check that out (it's more up-to-date than this repo!).
 
 Index
 -----
