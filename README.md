@@ -416,6 +416,9 @@ Login to Web console
 ```sh
 # Get Console URL from command output
 az aro list -o table
+
+webConsole=$(az aro show -g $RESOURCEGROUP -n $CLUSTER --query consoleProfile.url -o tsv | tr -d '[:space:]')
+echo $webConsole
 # ==> https://console-openshift-console.apps.<aro-domain>
 
 # Get kubeadmin username and password

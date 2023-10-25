@@ -1,5 +1,5 @@
-App Dev on ARO + Azure Container Apps
-=====================================
+App Dev on ARO + (Optional) Azure Container Apps
+================================================
 
 Common Steps
 ------------
@@ -21,7 +21,9 @@ Run the app locally with Docker Compose
 ---------------------------------------
 
 ```sh
+git clone https://github.com/clarenceb/rating-api
 git clone https://github.com/clarenceb/rating-web
+cd rating-web
 
 docker-compose build
 docker-compose up

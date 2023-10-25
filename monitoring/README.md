@@ -8,12 +8,22 @@ First, Arc-enable the ARO cluster see [these steps](../arc/).
 
 [Enable Azure Monitor Container Insights for Azure Arc enabled Kubernetes clusters](https://docs.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-enable-arc-enabled-clusters)
 
-Create a [Log Analytics Workspace](https://docs.microsoft.com/en-us/azure/azure-monitor/logs/quick-create-workspace-cli).
+Create a [Log Analytics Workspace](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/azure-cli-log-analytics-workspace-sample#create-a-workspace-for-monitor-logs).
 
 ```sh
 WORKSPACE_NAME="aro-logs"
 
-WORKSPACE_ID="$(az monitor log-analytics workspace show -n $WORKSPACE_NAME -g $ARC_RESOURCE_GROUP --query id -o tsv)"
+az monitor log-analytics workspace create --resource-group $RESOURCEGROUP \
+   --workspace-name $WORKSPACE_NAME --location $LOCATION
+
+WORKSPACE_ID="$(az monitor log-analytics workspace show -n $WORKSPACE_NAME -g $RESOURCEGROUP --query id -o tsv)"
+
+# Install the extension with **amalogs.useAADAuth=false**
+# Non-cli onboarding is not supported for Arc-enabled Kubernetes clusters with ARO.
+# Currently, only k8s-extension version 1.3.7 or below is supported.
+# See: https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-enable-arc-enabled-clusters?tabs=create-cli%2Cverify-portal%2Cmigrate-cli#create-extension-instance
+az extension remove --name k8s-extension
+az extension add --name k8s-extension --version 1.3.7
 
 az k8s-extension create \
     --name azuremonitor-containers \
@@ -21,7 +31,8 @@ az k8s-extension create \
     --resource-group $ARC_RESOURCE_GROUP \
     --cluster-type connectedClusters \
     --extension-type Microsoft.AzureMonitor.Containers \
-    --configuration-settings logAnalyticsWorkspaceResourceID=$WORKSPACE_ID
+    --configuration-settings logAnalyticsWorkspaceResourceID=$WORKSPACE_ID \
+    --configuration-settings amalogs.useAADAuth=false
 ```
 
 Check the "aro-arc" resource in the Azure Portal.  Click "Insights" to view the cluster health and metrics.

@@ -39,7 +39,7 @@ oc adm policy add-scc-to-user privileged system:serviceaccount:azure-arc:azure-a
 Onboard the ARO cluster to Arc:
 
 ```sh
-ARC_RESOURCE_GROUP="aro-demo"
+ARC_RESOURCE_GROUP="aro-test"
 ARC_CLUSTER_NAME="aro-arc"
 ARC_LOCATION="australiaeast"
 
