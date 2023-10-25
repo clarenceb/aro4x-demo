@@ -8,4 +8,13 @@ export CLUSTER=cluster        # Set your cluster name
 export RESOURCEGROUP="aro-v4"
 export VNET=aro-vnet
 export UTILS_VNET=utils-vnet
-export DOMAIN="<your-domain>" # Optional, if you want to set a custom domain for ARO (can be a FQDN or shortname)
+
+# Optional, if you want to set a custom domain for ARO (can be a FQDN or DNS prefix)
+# FQDN (e.g. contoso.io) will require further configuration of DNS and certicates
+# DNS prefix (e.g. contoso) will set a subdomain under <location>.aroapp.io and will be automatically configured with a certificate
+# Set to blank value to disable custom domain
+export DOMAIN="<your-domain>"
+
+echo "Your cluster will be named '$CLUSTER' in resource group '$RESOURCEGROUP' and location '$LOCATION'"
+echo "+ A VNET named '$VNET' will be set for the cluster"
+echo "+ A VNET named '$UTILS_VNET' will be set for the cluster utilities (e.g. jump box)"

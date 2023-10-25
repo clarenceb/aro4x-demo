@@ -15,6 +15,11 @@ param apiServerVisibility string = 'Public'
 param ingressVisibility string = 'Public'
 param masterVmSku string = 'Standard_D8s_v3'
 param prefix string = 'aro'
+param fipsValidatedModules string = 'Disabled'
+param encryptionAtHost string = 'Disabled'
+param workerVmSize string = 'Standard_D4s_v3'
+param workerDiskSizeGB int = 128
+param workerCount int = 3
 
 var ingressSpec = [
   {
@@ -25,14 +30,15 @@ var ingressSpec = [
 
 var workerSpec = {
   name: 'worker'
-  VmSize: 'Standard_D4s_v3'
-  diskSizeGB: 128
-  count: 3
+  VmSize: workerVmSize
+  diskSizeGB: workerDiskSizeGB
+  count: workerCount
+  encryptionAtHost: encryptionAtHost
 }
 
 var nodeRgName = '${prefix}-${take(uniqueString(resourceGroup().id, prefix), 5)}'
 
-resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
+resource cluster 'Microsoft.RedHatOpenShift/OpenShiftClusters@2023-04-01' = {
   name: clusterName
   location: location
   properties: {
@@ -40,6 +46,7 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
       domain: domain
       resourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', nodeRgName)
       pullSecret: pullSecret
+      fipsValidatedModules: fipsValidatedModules
     }
     apiserverProfile: {
       visibility: apiServerVisibility
@@ -51,6 +58,7 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
     masterProfile: {
       vmSize: masterVmSku
       subnetId: masterSubnetId
+      encryptionAtHost: encryptionAtHost
     }
     workerProfiles: [
       {
@@ -59,6 +67,7 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2020-04-30' = {
         diskSizeGB: workerSpec.diskSizeGB
         subnetId: workerSubnetId
         count: workerSpec.count
+        encryptionAtHost: workerSpec.encryptionAtHost
       }
     ]
     networkProfile: {

@@ -4,7 +4,7 @@ param aroRpObjectId string
 
 var roleDefinitionId = 'b24988ac-6180-42a0-ab88-20f7382dd24c' // contributor
 
-resource clusterRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+resource clusterRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-10-01-preview' = {
   name: guid(vnetId, roleDefinitionId, clientObjectId)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionId)
@@ -13,7 +13,7 @@ resource clusterRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-
   }
 }
 
-resource aroRpRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+resource aroRpRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-10-01-preview' = {
   name: guid(vnetId, roleDefinitionId, aroRpObjectId)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionId)

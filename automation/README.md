@@ -1,16 +1,18 @@
 Bicep example to create ARO cluster
 ===================================
 
-Start of a Bicep example.
-Creates a basic ARO cluster in a new resource group and VNET.
+The official docs now have docs to [create an ARO cluster with Bicep](https://learn.microsoft.com/en-us/azure/openshift/quickstart-openshift-arm-bicep-template?pivots=aro-bicep).
 
-You will need owner level access on the Subscription to execute the deployment.
-You'll also need permission to create an Azure AD Service Principal.
+Below is an example to create a basic ARO cluster in a new resource group and VNET using Bicep.
+
+* You will need owner level access on the Subscription to execute the deployment.
+* You'll also need permission to create an Azure AD Service Principal.
+* Complete the [Prerequisites](../README.md#prerequisites) in the main steps.
 
 ```sh
 source ../aro4-env.sh
 
-sp_display_name="aro-demo-sp"
+sp_display_name="aro-test-sp"
 az ad sp create-for-rbac -n http://$sp_display_name > aro-sp.json
 
 clientId="$(jq -r .appId <aro-sp.json)"
@@ -18,9 +20,12 @@ clientSecret="$(jq -r .password <aro-sp.json)"
 pullSecret=$(cat ../pull-secret.txt)
 tenantId=$(az account show --query tenantId -o tsv)
 
-clientObjectId="$(az ad sp list --filter "AppId eq '$clientId'" --query "[?appId=='$clientId'].id" -o tsv)"
+clientObjectId="$(az ad sp list --filter "appId eq '$clientId'" --query "[?appId=='$clientId'].id" -o tsv)"
  
-aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP']" --query "[?appOwnerOrganizationId=='$tenantId'].id" -o tsv | head -1)"
+aroRpObjectId="$(az ad sp list --filter "displayname eq 'Azure Red Hat OpenShift RP'" --query "[?appDisplayName=='Azure Red Hat OpenShift RP'].id" -o tsv | head -1)"
+
+az upgrade
+az bicep upgrade
 
 az group create -n $RESOURCEGROUP -l $LOCATION
 
@@ -35,9 +40,10 @@ az deployment group create \
         pullSecret=$pullSecret
 ```
 
-Then you can proceed to configure the [DNS and TLS/Certs settings](../TLS.md), if required - e.g. you set a FQDN custom domain.
-If you set only a name e.g. "mycluster" and not a FQDN "mycluster.com.au" then you don't need to set custom DNS and configure custom certs.
-The assigned FQDN whe you only specify the short name will be in the format:
+Then you can proceed to configure the [DNS and TLS/Certs settings](../TLS.md), if required - e.g. you set a FQDN custom domain rather than a DNS suffix.
+If you set only a DNS suffix e.g. "mycluster" and not a FQDN "mycluster.com.au" then you don't need to set custom DNS and configure custom certs.
+
+The assigned FQDN when you only specify the short name will be in the format:
 
 ```sh
 https://console-openshift-console.apps.<shortname>.<region>.aroapp.io/

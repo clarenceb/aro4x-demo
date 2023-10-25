@@ -43,6 +43,7 @@ az account set -s <subscription_id>
 
 ```sh
 az provider register -n Microsoft.RedHatOpenShift --wait
+az provider show -n Microsoft.RedHatOpenShift -o table
 ```
 
 * Install the [OpenShift CLI](https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/) for managing the cluster
@@ -70,8 +71,8 @@ cp aro4-env.sh.template aro4-env.sh
 # Edit aro4-env.sh to suit your environment
 ```
 
-Create the cluster virtual network
-----------------------------------
+Create the cluster virtual network (Azure CLI)
+----------------------------------------------
 
 The VNET and subnet sizes here are for illustrative purposes only.
 You need to design the network accordingly to your scale needs and existing networks (to avoid overlaps).
@@ -113,8 +114,8 @@ az network vnet subnet update \
   --disable-private-link-service-network-policies true
 ```
 
-Create a default cluster
-------------------------
+Create a default cluster (Azure CLI)
+------------------------------------
 
 See the [official instructions](https://docs.microsoft.com/en-us/azure/openshift/tutorial-create-cluster).
 
@@ -140,10 +141,10 @@ Change Ingress Controller (public to private)
 
 If you have created a cluster with a public ingress (default) you can change that to private later or add a second ingress to handle private traffic whilst still serving public traffic.
 
-TODO
+* TODO
 
-Create a private cluster
-------------------------
+Create a private cluster (Azure CLI)
+------------------------------------
 
 See the [official instructions](https://docs.microsoft.com/en-us/azure/openshift/howto-create-private-cluster-4x).
 
@@ -403,6 +404,11 @@ In the Rules section, define rules x n (one per website/api):
 TODO: Define Health probes
 
 Access the website/API via App Gateway: e.g. `https://rating-web.<domain>/`
+
+Create a an ARO cluster and VNET with Bicep
+--------------------------------------------
+
+See: [automation](./automation/) section.
 
 Login to Web console
 --------------------
